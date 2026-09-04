@@ -1,0 +1,22 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Pytest
+.pytest_cache/
+
+# Packaging
+*.egg-info/
+build/
+dist/
+
+# IDE
+.idea/
+
+# Generated encrypted/decrypted files
+*.enc
+*.dec
