@@ -22,21 +22,21 @@ CryptoCore — консольный инструмент для шифрован
 
 ## Установка
 
-Открой терминал в корне проекта.
+Откроем терминал в корне проекта.
 
-Создай виртуальное окружение:
+Создадим виртуальное окружение:
 
 ```powershell
 python -m venv .venv
 ```
 
-Активируй его:
+Активируем его:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
 ```
 
-Установи проект и зависимости:
+Установим проект и зависимости:
 
 ```powershell
 python -m pip install --upgrade pip
@@ -125,25 +125,25 @@ pytest -q
 
 ## Проверка полного цикла вручную
 
-Создай тестовый файл:
+Создадим тестовый файл:
 
 ```powershell
 Set-Content -NoNewline plaintext.txt "CryptoCore test message"
 ```
 
-Зашифруй:
+Зашифруем:
 
 ```powershell
 cryptocore --algorithm aes --mode ecb --encrypt --key 000102030405060708090a0b0c0d0e0f --input plaintext.txt --output ciphertext.bin
 ```
 
-Расшифруй:
+Расшифруем:
 
 ```powershell
 cryptocore --algorithm aes --mode ecb --decrypt --key 000102030405060708090a0b0c0d0e0f --input ciphertext.bin --output decrypted.txt
 ```
 
-Сравни файлы:
+Сравним файлы:
 
 ```powershell
 if ((Get-FileHash plaintext.txt).Hash -eq (Get-FileHash decrypted.txt).Hash) { "OK" } else { "ERROR" }
