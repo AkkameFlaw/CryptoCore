@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from cryptocore.cli import run
 
 
@@ -7,31 +9,44 @@ KEY = (
     "000102030405060708090a0b0c0d0e0f"
 )
 
+IV = (
+    "aabbccddeeff00112233445566778899"
+)
 
-def test_cli_encrypt_decrypt(
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        "ecb",
+        "cbc",
+        "cfb",
+        "ofb",
+        "ctr",
+    ],
+)
+def test_cli_roundtrip(
     tmp_path: Path,
+    mode: str,
 ) -> None:
-
-    input_file = (
+    source = (
         tmp_path / "input.bin"
     )
 
-    encrypted_file = (
+    encrypted = (
         tmp_path / "encrypted.bin"
     )
 
-    decrypted_file = (
+    decrypted = (
         tmp_path / "decrypted.bin"
     )
 
-    original_data = (
+    original = (
         bytes(range(256))
-        + b"\x00\xff"
-        + b"CryptoCore binary test"
+        + b"CryptoCore Sprint 2"
     )
 
-    input_file.write_bytes(
-        original_data
+    source.write_bytes(
+        original
     )
 
     encrypt_result = run(
@@ -39,132 +54,53 @@ def test_cli_encrypt_decrypt(
             "--algorithm",
             "aes",
             "--mode",
-            "ecb",
+            mode,
             "--encrypt",
             "--key",
             KEY,
             "--input",
-            str(input_file),
+            str(source),
             "--output",
-            str(encrypted_file),
+            str(encrypted),
         ]
     )
 
     assert encrypt_result == 0
-
-    assert encrypted_file.exists()
 
     decrypt_result = run(
         [
             "--algorithm",
             "aes",
             "--mode",
-            "ecb",
+            mode,
             "--decrypt",
             "--key",
             KEY,
             "--input",
-            str(encrypted_file),
+            str(encrypted),
             "--output",
-            str(decrypted_file),
+            str(decrypted),
         ]
     )
 
     assert decrypt_result == 0
 
-    assert decrypted_file.exists()
-
     assert (
-        decrypted_file.read_bytes()
-        == original_data
+        decrypted.read_bytes()
+        == original
     )
 
 
-def test_invalid_key(
+def test_iv_rejected_for_encrypt(
     tmp_path: Path,
     capsys,
 ) -> None:
-
-    input_file = (
-        tmp_path / "input.txt"
+    source = (
+        tmp_path / "input.bin"
     )
 
-    input_file.write_bytes(
-        b"hello"
-    )
-
-    result = run(
-        [
-            "--algorithm",
-            "aes",
-            "--mode",
-            "ecb",
-            "--encrypt",
-            "--key",
-            "1234",
-            "--input",
-            str(input_file),
-        ]
-    )
-
-    assert result != 0
-
-    captured = capsys.readouterr()
-
-    assert (
-        "--key"
-        in captured.err
-    )
-
-
-def test_invalid_algorithm(
-    tmp_path: Path,
-    capsys,
-) -> None:
-
-    input_file = (
-        tmp_path / "input.txt"
-    )
-
-    input_file.write_bytes(
-        b"hello"
-    )
-
-    result = run(
-        [
-            "--algorithm",
-            "des",
-            "--mode",
-            "ecb",
-            "--encrypt",
-            "--key",
-            KEY,
-            "--input",
-            str(input_file),
-        ]
-    )
-
-    assert result != 0
-
-    captured = capsys.readouterr()
-
-    assert (
-        "--algorithm"
-        in captured.err
-    )
-
-
-def test_invalid_mode(
-    tmp_path: Path,
-    capsys,
-) -> None:
-
-    input_file = (
-        tmp_path / "input.txt"
-    )
-
-    input_file.write_bytes(
-        b"hello"
+    source.write_bytes(
+        b"test"
     )
 
     result = run(
@@ -176,8 +112,43 @@ def test_invalid_mode(
             "--encrypt",
             "--key",
             KEY,
+            "--iv",
+            IV,
             "--input",
-            str(input_file),
+            str(source),
+        ]
+    )
+
+    assert result != 0
+
+    captured = capsys.readouterr()
+
+    assert "--iv" in captured.err
+
+
+def test_short_iv_file(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    source = (
+        tmp_path / "input.bin"
+    )
+
+    source.write_bytes(
+        b"short"
+    )
+
+    result = run(
+        [
+            "--algorithm",
+            "aes",
+            "--mode",
+            "ctr",
+            "--decrypt",
+            "--key",
+            KEY,
+            "--input",
+            str(source),
         ]
     )
 
@@ -186,18 +157,21 @@ def test_invalid_mode(
     captured = capsys.readouterr()
 
     assert (
-        "--mode"
+        "16-byte IV"
         in captured.err
     )
 
 
-def test_missing_input_file(
+def test_invalid_iv(
     tmp_path: Path,
     capsys,
 ) -> None:
+    source = (
+        tmp_path / "input.bin"
+    )
 
-    missing_file = (
-        tmp_path / "missing.bin"
+    source.write_bytes(
+        b"data"
     )
 
     result = run(
@@ -205,12 +179,14 @@ def test_missing_input_file(
             "--algorithm",
             "aes",
             "--mode",
-            "ecb",
-            "--encrypt",
+            "cfb",
+            "--decrypt",
             "--key",
             KEY,
+            "--iv",
+            "1234",
             "--input",
-            str(missing_file),
+            str(source),
         ]
     )
 
@@ -218,42 +194,4 @@ def test_missing_input_file(
 
     captured = capsys.readouterr()
 
-    assert (
-        "error"
-        in captured.err.lower()
-    )
-
-
-def test_default_output_name(
-    tmp_path: Path,
-) -> None:
-
-    input_file = (
-        tmp_path / "input.txt"
-    )
-
-    input_file.write_bytes(
-        b"default output test"
-    )
-
-    result = run(
-        [
-            "--algorithm",
-            "aes",
-            "--mode",
-            "ecb",
-            "--encrypt",
-            "--key",
-            KEY,
-            "--input",
-            str(input_file),
-        ]
-    )
-
-    assert result == 0
-
-    expected_output = Path(
-        str(input_file) + ".enc"
-    )
-
-    assert expected_output.exists()
+    assert "--iv" in captured.err

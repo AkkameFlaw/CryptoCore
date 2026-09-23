@@ -1,7 +1,9 @@
 from Crypto.Cipher import AES
 
-
-BLOCK_SIZE = 16
+from .common import (
+    BLOCK_SIZE,
+    validate_key,
+)
 
 
 class PaddingError(ValueError):
@@ -69,13 +71,6 @@ def pkcs7_unpad(
     return data[:-padding_length]
 
 
-def validate_key(key: bytes) -> None:
-    if len(key) != BLOCK_SIZE:
-        raise ValueError(
-            "AES-128 key must be exactly 16 bytes"
-        )
-
-
 def encrypt_ecb(
     data: bytes,
     key: bytes,
@@ -100,9 +95,9 @@ def encrypt_ecb(
             offset:offset + BLOCK_SIZE
         ]
 
-        encrypted_block = cipher.encrypt(block)
-
-        encrypted.extend(encrypted_block)
+        encrypted.extend(
+            cipher.encrypt(block)
+        )
 
     return bytes(encrypted)
 
@@ -140,9 +135,9 @@ def decrypt_ecb(
             offset:offset + BLOCK_SIZE
         ]
 
-        decrypted_block = cipher.decrypt(block)
-
-        decrypted.extend(decrypted_block)
+        decrypted.extend(
+            cipher.decrypt(block)
+        )
 
     return pkcs7_unpad(
         bytes(decrypted)

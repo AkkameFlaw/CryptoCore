@@ -20,3 +20,5 @@ dist/
 # Generated encrypted/decrypted files
 *.enc
 *.dec
+
+*.egg-info/

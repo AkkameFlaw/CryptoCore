@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 
 from .file_io import (
@@ -8,11 +9,30 @@ from .file_io import (
     write_binary,
 )
 
-from .modes.ecb import (
+from .modes import (
     PaddingError,
+    decrypt_cbc,
+    decrypt_cfb,
+    decrypt_ctr,
     decrypt_ecb,
+    decrypt_ofb,
+    encrypt_cbc,
+    encrypt_cfb,
+    encrypt_ctr,
     encrypt_ecb,
+    encrypt_ofb,
 )
+
+
+IV_SIZE = 16
+
+SUPPORTED_MODES = {
+    "ecb",
+    "cbc",
+    "cfb",
+    "ofb",
+    "ctr",
+}
 
 
 class ArgumentError(ValueError):
@@ -23,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cryptocore",
         description=(
-            "AES-128 ECB file encryption "
+            "AES-128 file encryption "
             "and decryption tool"
         ),
     )
@@ -31,13 +51,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--algorithm",
         required=True,
-        help="Algorithm. Sprint 1 supports: aes",
     )
 
     parser.add_argument(
         "--mode",
         required=True,
-        help="Mode. Sprint 1 supports: ecb",
     )
 
     operation_group = (
@@ -49,41 +67,39 @@ def build_parser() -> argparse.ArgumentParser:
     operation_group.add_argument(
         "--encrypt",
         action="store_true",
-        help="Encrypt input file",
     )
 
     operation_group.add_argument(
         "--decrypt",
         action="store_true",
-        help="Decrypt input file",
     )
 
     parser.add_argument(
         "--key",
         required=True,
-        help=(
-            "AES-128 key as "
-            "32 hexadecimal characters"
-        ),
+    )
+
+    parser.add_argument(
+        "--iv",
     )
 
     parser.add_argument(
         "--input",
         required=True,
         dest="input_file",
-        help="Input file",
     )
 
     parser.add_argument(
         "--output",
         dest="output_file",
-        help="Output file",
     )
 
     return parser
 
 
-def parse_key(key_text: str) -> bytes:
+def parse_key(
+    key_text: str,
+) -> bytes:
     if len(key_text) != 32:
         raise ArgumentError(
             "--key must contain exactly "
@@ -91,7 +107,9 @@ def parse_key(key_text: str) -> bytes:
         )
 
     try:
-        key = bytes.fromhex(key_text)
+        key = bytes.fromhex(
+            key_text
+        )
 
     except ValueError as exc:
         raise ArgumentError(
@@ -108,6 +126,35 @@ def parse_key(key_text: str) -> bytes:
     return key
 
 
+def parse_iv(
+    iv_text: str,
+) -> bytes:
+    if len(iv_text) != 32:
+        raise ArgumentError(
+            "--iv must contain exactly "
+            "32 hexadecimal characters"
+        )
+
+    try:
+        iv = bytes.fromhex(
+            iv_text
+        )
+
+    except ValueError as exc:
+        raise ArgumentError(
+            "--iv must be a valid "
+            "hexadecimal string"
+        ) from exc
+
+    if len(iv) != IV_SIZE:
+        raise ArgumentError(
+            "--iv must decode to "
+            "exactly 16 bytes"
+        )
+
+    return iv
+
+
 def get_default_output(
     input_file: str,
     decrypt: bool,
@@ -120,18 +167,142 @@ def get_default_output(
 
 def validate_arguments(
     args: argparse.Namespace,
-) -> bytes:
+) -> tuple[bytes, str]:
     if args.algorithm.lower() != "aes":
         raise ArgumentError(
             "--algorithm must be 'aes'"
         )
 
-    if args.mode.lower() != "ecb":
+    mode = args.mode.lower()
+
+    if mode not in SUPPORTED_MODES:
         raise ArgumentError(
-            "--mode must be 'ecb'"
+            "--mode must be one of: "
+            "ecb, cbc, cfb, ofb, ctr"
         )
 
-    return parse_key(args.key)
+    if args.encrypt and args.iv is not None:
+        raise ArgumentError(
+            "--iv must not be used "
+            "with --encrypt"
+        )
+
+    if mode == "ecb" and args.iv is not None:
+        raise ArgumentError(
+            "--iv is not used "
+            "with ECB mode"
+        )
+
+    return (
+        parse_key(args.key),
+        mode,
+    )
+
+
+def encrypt_data(
+    data: bytes,
+    key: bytes,
+    mode: str,
+) -> bytes:
+    if mode == "ecb":
+        return encrypt_ecb(
+            data,
+            key,
+        )
+
+    iv = os.urandom(
+        IV_SIZE
+    )
+
+    if mode == "cbc":
+        ciphertext = encrypt_cbc(
+            data,
+            key,
+            iv,
+        )
+
+    elif mode == "cfb":
+        ciphertext = encrypt_cfb(
+            data,
+            key,
+            iv,
+        )
+
+    elif mode == "ofb":
+        ciphertext = encrypt_ofb(
+            data,
+            key,
+            iv,
+        )
+
+    else:
+        ciphertext = encrypt_ctr(
+            data,
+            key,
+            iv,
+        )
+
+    return iv + ciphertext
+
+
+def decrypt_data(
+    data: bytes,
+    key: bytes,
+    mode: str,
+    iv_text: str | None,
+) -> bytes:
+    if mode == "ecb":
+        return decrypt_ecb(
+            data,
+            key,
+        )
+
+    if iv_text is not None:
+        iv = parse_iv(
+            iv_text
+        )
+
+        ciphertext = data
+
+    else:
+        if len(data) < IV_SIZE:
+            raise ValueError(
+                "input file is too short "
+                "to contain a 16-byte IV"
+            )
+
+        iv = data[:IV_SIZE]
+
+        ciphertext = data[
+            IV_SIZE:
+        ]
+
+    if mode == "cbc":
+        return decrypt_cbc(
+            ciphertext,
+            key,
+            iv,
+        )
+
+    if mode == "cfb":
+        return decrypt_cfb(
+            ciphertext,
+            key,
+            iv,
+        )
+
+    if mode == "ofb":
+        return decrypt_ofb(
+            ciphertext,
+            key,
+            iv,
+        )
+
+    return decrypt_ctr(
+        ciphertext,
+        key,
+        iv,
+    )
 
 
 def run(
@@ -139,10 +310,14 @@ def run(
 ) -> int:
     parser = build_parser()
 
-    args = parser.parse_args(argv)
+    args = parser.parse_args(
+        argv
+    )
 
     try:
-        key = validate_arguments(args)
+        key, mode = validate_arguments(
+            args
+        )
 
         output_file = (
             args.output_file
@@ -152,17 +327,23 @@ def run(
             )
         )
 
-        data = read_binary(args.input_file)
+        data = read_binary(
+            args.input_file
+        )
 
         if args.encrypt:
-            result = encrypt_ecb(
+            result = encrypt_data(
                 data,
                 key,
+                mode,
             )
+
         else:
-            result = decrypt_ecb(
+            result = decrypt_data(
                 data,
                 key,
+                mode,
+                args.iv,
             )
 
         write_binary(
@@ -191,4 +372,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(
+        main()
+    )
