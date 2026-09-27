@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
+
+from .csprng import generate_random_bytes
 
 from .file_io import (
     read_binary,
@@ -24,6 +25,7 @@ from .modes import (
 )
 
 
+KEY_SIZE = 16
 IV_SIZE = 16
 
 SUPPORTED_MODES = {
@@ -76,7 +78,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--key",
-        required=True,
     )
 
     parser.add_argument(
@@ -117,7 +118,7 @@ def parse_key(
             "hexadecimal string"
         ) from exc
 
-    if len(key) != 16:
+    if len(key) != KEY_SIZE:
         raise ArgumentError(
             "--key must decode to "
             "exactly 16 bytes"
@@ -155,6 +156,65 @@ def parse_iv(
     return iv
 
 
+def is_weak_key(
+    key: bytes,
+) -> bool:
+    if len(set(key)) == 1:
+        return True
+
+    ascending = all(
+        key[index]
+        == (key[0] + index) % 256
+        for index in range(len(key))
+    )
+
+    descending = all(
+        key[index]
+        == (key[0] - index) % 256
+        for index in range(len(key))
+    )
+
+    return (
+        ascending
+        or descending
+    )
+
+
+def resolve_key(
+    args: argparse.Namespace,
+) -> bytes:
+    if args.key is None:
+        if args.decrypt:
+            raise ArgumentError(
+                "--key is required "
+                "for decryption"
+            )
+
+        key = generate_random_bytes(
+            KEY_SIZE
+        )
+
+        print(
+            "[INFO] Generated random key: "
+            f"{key.hex()}"
+        )
+
+        return key
+
+    key = parse_key(
+        args.key
+    )
+
+    if is_weak_key(key):
+        print(
+            "[WARNING] Provided key "
+            "appears weak.",
+            file=sys.stderr,
+        )
+
+    return key
+
+
 def get_default_output(
     input_file: str,
     decrypt: bool,
@@ -167,7 +227,7 @@ def get_default_output(
 
 def validate_arguments(
     args: argparse.Namespace,
-) -> tuple[bytes, str]:
+) -> str:
     if args.algorithm.lower() != "aes":
         raise ArgumentError(
             "--algorithm must be 'aes'"
@@ -193,10 +253,7 @@ def validate_arguments(
             "with ECB mode"
         )
 
-    return (
-        parse_key(args.key),
-        mode,
-    )
+    return mode
 
 
 def encrypt_data(
@@ -210,7 +267,7 @@ def encrypt_data(
             key,
         )
 
-    iv = os.urandom(
+    iv = generate_random_bytes(
         IV_SIZE
     )
 
@@ -315,7 +372,11 @@ def run(
     )
 
     try:
-        key, mode = validate_arguments(
+        mode = validate_arguments(
+            args
+        )
+
+        key = resolve_key(
             args
         )
 
@@ -356,6 +417,7 @@ def run(
     except (
         ArgumentError,
         PaddingError,
+        RuntimeError,
         ValueError,
         OSError,
     ) as exc:

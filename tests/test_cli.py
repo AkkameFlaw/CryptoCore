@@ -195,3 +195,163 @@ def test_invalid_iv(
     captured = capsys.readouterr()
 
     assert "--iv" in captured.err
+
+def test_generated_key_roundtrip(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    source = (
+        tmp_path / "input.bin"
+    )
+
+    encrypted = (
+        tmp_path / "encrypted.bin"
+    )
+
+    decrypted = (
+        tmp_path / "decrypted.bin"
+    )
+
+    original = (
+        b"CryptoCore Sprint 3"
+    )
+
+    source.write_bytes(
+        original
+    )
+
+    encrypt_result = run(
+        [
+            "--algorithm",
+            "aes",
+            "--mode",
+            "ctr",
+            "--encrypt",
+            "--input",
+            str(source),
+            "--output",
+            str(encrypted),
+        ]
+    )
+
+    assert encrypt_result == 0
+
+    captured = capsys.readouterr()
+
+    prefix = (
+        "[INFO] Generated random key: "
+    )
+
+    lines = [
+        line
+        for line
+        in captured.out.splitlines()
+        if line.startswith(prefix)
+    ]
+
+    assert len(lines) == 1
+
+    key = lines[0][
+        len(prefix):
+    ]
+
+    assert len(key) == 32
+
+    decrypt_result = run(
+        [
+            "--algorithm",
+            "aes",
+            "--mode",
+            "ctr",
+            "--decrypt",
+            "--key",
+            key,
+            "--input",
+            str(encrypted),
+            "--output",
+            str(decrypted),
+        ]
+    )
+
+    assert decrypt_result == 0
+
+    assert (
+        decrypted.read_bytes()
+        == original
+    )
+
+
+def test_decrypt_requires_key(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    source = (
+        tmp_path / "input.bin"
+    )
+
+    source.write_bytes(
+        b"1234567890123456"
+    )
+
+    result = run(
+        [
+            "--algorithm",
+            "aes",
+            "--mode",
+            "ctr",
+            "--decrypt",
+            "--input",
+            str(source),
+        ]
+    )
+
+    assert result != 0
+
+    captured = capsys.readouterr()
+
+    assert (
+        "--key is required"
+        in captured.err
+    )
+
+
+def test_weak_key_warning(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    source = (
+        tmp_path / "input.bin"
+    )
+
+    encrypted = (
+        tmp_path / "encrypted.bin"
+    )
+
+    source.write_bytes(
+        b"weak key test"
+    )
+
+    result = run(
+        [
+            "--algorithm",
+            "aes",
+            "--mode",
+            "ctr",
+            "--encrypt",
+            "--key",
+            "00000000000000000000000000000000",
+            "--input",
+            str(source),
+            "--output",
+            str(encrypted),
+        ]
+    )
+
+    assert result == 0
+
+    captured = capsys.readouterr()
+
+    assert (
+        "[WARNING]"
+        in captured.err
+    )

@@ -22,3 +22,6 @@ dist/
 *.dec
 
 *.egg-info/
+
+# NIST test data
+nist_test_data.bin
