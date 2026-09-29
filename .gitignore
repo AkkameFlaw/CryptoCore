@@ -1,27 +1,44 @@
-# Virtual environment
 .venv/
 venv/
+.idea/
 
-# Python cache
 __pycache__/
 *.py[cod]
-
-# Pytest
 .pytest_cache/
 
-# Packaging
 *.egg-info/
 build/
 dist/
 
-# IDE
-.idea/
-
-# Generated encrypted/decrypted files
 *.enc
 *.dec
 
-*.egg-info/
+plaintext.txt
+ciphertext.bin
+decrypted.txt
 
-# NIST test data
+cbc.bin
+cfb.bin
+ofb.bin
+ctr.bin
+
+crypto_*.bin
+cipher_*.bin
+crypto_decrypted_*.txt
+
+openssl_*.bin
+openssl_*.txt
+
+result_*.txt
+
+cryptocore_ecb.bin
+weak.bin
+sprint3.bin
+sprint3_decrypted.txt
+
 nist_test_data.bin
+
+large_hash_test.bin
+hash_test.txt
+sprint4.txt
+sprint4.sha256

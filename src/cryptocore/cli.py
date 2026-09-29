@@ -5,6 +5,12 @@ import sys
 
 from .csprng import generate_random_bytes
 
+from .digest import (
+    format_digest,
+    hash_file,
+    write_digest_output,
+)
+
 from .file_io import (
     read_binary,
     write_binary,
@@ -48,6 +54,10 @@ def build_parser() -> argparse.ArgumentParser:
             "AES-128 file encryption "
             "and decryption tool"
         ),
+        epilog=(
+            "Use 'cryptocore dgst --help' "
+            "for hashing."
+        ),
     )
 
     parser.add_argument(
@@ -82,6 +92,34 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--iv",
+    )
+
+    parser.add_argument(
+        "--input",
+        required=True,
+        dest="input_file",
+    )
+
+    parser.add_argument(
+        "--output",
+        dest="output_file",
+    )
+
+    return parser
+
+
+def build_digest_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="cryptocore dgst",
+        description=(
+            "Calculate a cryptographic "
+            "message digest"
+        ),
+    )
+
+    parser.add_argument(
+        "--algorithm",
+        required=True,
     )
 
     parser.add_argument(
@@ -328,7 +366,9 @@ def decrypt_data(
                 "to contain a 16-byte IV"
             )
 
-        iv = data[:IV_SIZE]
+        iv = data[
+            :IV_SIZE
+        ]
 
         ciphertext = data[
             IV_SIZE:
@@ -362,13 +402,78 @@ def decrypt_data(
     )
 
 
+def run_digest(
+    argv: list[str],
+) -> int:
+    parser = build_digest_parser()
+
+    try:
+        args = parser.parse_args(
+            argv
+        )
+
+    except SystemExit as exc:
+        return int(
+            exc.code
+        )
+
+    try:
+        hash_value = hash_file(
+            args.input_file,
+            args.algorithm,
+        )
+
+        result = format_digest(
+            hash_value,
+            args.input_file,
+        )
+
+        if args.output_file:
+            write_digest_output(
+                args.output_file,
+                result,
+            )
+
+        else:
+            print(
+                result
+            )
+
+        return 0
+
+    except (
+        ValueError,
+        OSError,
+    ) as exc:
+        print(
+            f"cryptocore: error: {exc}",
+            file=sys.stderr,
+        )
+
+        return 2
+
+
 def run(
     argv: list[str] | None = None,
 ) -> int:
+    arguments = list(
+        sys.argv[1:]
+        if argv is None
+        else argv
+    )
+
+    if (
+        arguments
+        and arguments[0] == "dgst"
+    ):
+        return run_digest(
+            arguments[1:]
+        )
+
     parser = build_parser()
 
     args = parser.parse_args(
-        argv
+        arguments
     )
 
     try:
