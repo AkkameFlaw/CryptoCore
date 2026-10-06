@@ -38,7 +38,9 @@ sprint3_decrypted.txt
 
 nist_test_data.bin
 
+benchmark_*mb.bin
 large_hash_test.bin
+
 hash_test.txt
 sprint4.txt
 sprint4.sha256

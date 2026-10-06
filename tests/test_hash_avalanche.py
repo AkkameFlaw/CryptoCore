@@ -1,4 +1,4 @@
-from cryptocore.hashes import SHA256, SHA3_256
+from hash import SHA256, SHA3_256
 
 
 def count_different_bits(

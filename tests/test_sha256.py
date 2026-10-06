@@ -2,7 +2,7 @@ import hashlib
 
 import pytest
 
-from cryptocore.hashes import SHA256
+from hash import SHA256
 
 
 @pytest.mark.parametrize(

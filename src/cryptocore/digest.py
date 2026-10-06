@@ -1,7 +1,7 @@
 import sys
 from typing import BinaryIO
 
-from .hashes import SHA256, SHA3_256
+from hash import SHA256, SHA3_256
 
 
 CHUNK_SIZE = 8192
