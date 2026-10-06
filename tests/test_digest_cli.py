@@ -263,8 +263,8 @@ def test_dgst_rejects_encryption_arguments(
             "sha256",
             "--input",
             str(source),
-            "--key",
-            "000102030405060708090a0b0c0d0e0f",
+            "--mode",
+            "cbc",
         ]
     )
 

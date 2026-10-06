@@ -1,21 +1,22 @@
 from __future__ import annotations
 
 import argparse
+import secrets
 import sys
 
 from .csprng import generate_random_bytes
-
 from .digest import (
     format_digest,
+    format_hmac,
     hash_file,
+    hmac_file,
+    read_expected_hmac,
     write_digest_output,
 )
-
 from .file_io import (
     read_binary,
     write_binary,
 )
-
 from .modes import (
     PaddingError,
     decrypt_cbc,
@@ -56,7 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         epilog=(
             "Use 'cryptocore dgst --help' "
-            "for hashing."
+            "for hashing and HMAC."
         ),
     )
 
@@ -113,7 +114,7 @@ def build_digest_parser() -> argparse.ArgumentParser:
         prog="cryptocore dgst",
         description=(
             "Calculate a cryptographic "
-            "message digest"
+            "message digest or HMAC"
         ),
     )
 
@@ -131,6 +132,20 @@ def build_digest_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output",
         dest="output_file",
+    )
+
+    parser.add_argument(
+        "--hmac",
+        action="store_true",
+    )
+
+    parser.add_argument(
+        "--key",
+    )
+
+    parser.add_argument(
+        "--verify",
+        dest="verify_file",
     )
 
     return parser
@@ -163,6 +178,30 @@ def parse_key(
         )
 
     return key
+
+
+def parse_hmac_key(
+    key_text: str,
+) -> bytes:
+    if len(key_text) % 2 != 0:
+        raise ArgumentError(
+            "--key must contain an even "
+            "number of hexadecimal characters"
+        )
+
+    if any(
+        character
+        not in "0123456789abcdefABCDEF"
+        for character in key_text
+    ):
+        raise ArgumentError(
+            "--key must be a valid "
+            "hexadecimal string"
+        )
+
+    return bytes.fromhex(
+        key_text
+    )
 
 
 def parse_iv(
@@ -203,13 +242,17 @@ def is_weak_key(
     ascending = all(
         key[index]
         == (key[0] + index) % 256
-        for index in range(len(key))
+        for index in range(
+            len(key)
+        )
     )
 
     descending = all(
         key[index]
         == (key[0] - index) % 256
-        for index in range(len(key))
+        for index in range(
+            len(key)
+        )
     )
 
     return (
@@ -243,7 +286,9 @@ def resolve_key(
         args.key
     )
 
-    if is_weak_key(key):
+    if is_weak_key(
+        key
+    ):
         print(
             "[WARNING] Provided key "
             "appears weak.",
@@ -258,20 +303,29 @@ def get_default_output(
     decrypt: bool,
 ) -> str:
     if decrypt:
-        return f"{input_file}.dec"
+        return (
+            f"{input_file}.dec"
+        )
 
-    return f"{input_file}.enc"
+    return (
+        f"{input_file}.enc"
+    )
 
 
 def validate_arguments(
     args: argparse.Namespace,
 ) -> str:
-    if args.algorithm.lower() != "aes":
+    if (
+        args.algorithm.lower()
+        != "aes"
+    ):
         raise ArgumentError(
             "--algorithm must be 'aes'"
         )
 
-    mode = args.mode.lower()
+    mode = (
+        args.mode.lower()
+    )
 
     if mode not in SUPPORTED_MODES:
         raise ArgumentError(
@@ -279,13 +333,19 @@ def validate_arguments(
             "ecb, cbc, cfb, ofb, ctr"
         )
 
-    if args.encrypt and args.iv is not None:
+    if (
+        args.encrypt
+        and args.iv is not None
+    ):
         raise ArgumentError(
             "--iv must not be used "
             "with --encrypt"
         )
 
-    if mode == "ecb" and args.iv is not None:
+    if (
+        mode == "ecb"
+        and args.iv is not None
+    ):
         raise ArgumentError(
             "--iv is not used "
             "with ECB mode"
@@ -337,7 +397,10 @@ def encrypt_data(
             iv,
         )
 
-    return iv + ciphertext
+    return (
+        iv
+        + ciphertext
+    )
 
 
 def decrypt_data(
@@ -418,15 +481,91 @@ def run_digest(
         )
 
     try:
-        hash_value = hash_file(
-            args.input_file,
-            args.algorithm,
-        )
+        if args.hmac:
+            if args.key is None:
+                raise ArgumentError(
+                    "--key is required "
+                    "when --hmac is used"
+                )
 
-        result = format_digest(
-            hash_value,
-            args.input_file,
-        )
+            if (
+                args.algorithm.lower()
+                != "sha256"
+            ):
+                raise ArgumentError(
+                    "--hmac currently supports "
+                    "only sha256"
+                )
+
+            if (
+                args.verify_file
+                and args.output_file
+            ):
+                raise ArgumentError(
+                    "--output must not be used "
+                    "with --verify"
+                )
+
+            key = parse_hmac_key(
+                args.key
+            )
+
+            hmac_value = hmac_file(
+                args.input_file,
+                key,
+            )
+
+            if args.verify_file:
+                expected = (
+                    read_expected_hmac(
+                        args.verify_file
+                    )
+                )
+
+                if secrets.compare_digest(
+                    hmac_value,
+                    expected,
+                ):
+                    print(
+                        "[OK] HMAC verification "
+                        "successful"
+                    )
+
+                    return 0
+
+                print(
+                    "[ERROR] HMAC verification "
+                    "failed",
+                    file=sys.stderr,
+                )
+
+                return 1
+
+            result = format_hmac(
+                hmac_value,
+                args.input_file,
+            )
+
+        else:
+            if args.key is not None:
+                raise ArgumentError(
+                    "--key requires --hmac"
+                )
+
+            if args.verify_file is not None:
+                raise ArgumentError(
+                    "--verify requires --hmac"
+                )
+
+            hash_value = hash_file(
+                args.input_file,
+                args.algorithm,
+            )
+
+            result = format_digest(
+                hash_value,
+                args.input_file,
+            )
 
         if args.output_file:
             write_digest_output(
@@ -442,6 +581,7 @@ def run_digest(
         return 0
 
     except (
+        ArgumentError,
         ValueError,
         OSError,
     ) as exc:
@@ -472,9 +612,15 @@ def run(
 
     parser = build_parser()
 
-    args = parser.parse_args(
-        arguments
-    )
+    try:
+        args = parser.parse_args(
+            arguments
+        )
+
+    except SystemExit as exc:
+        return int(
+            exc.code
+        )
 
     try:
         mode = validate_arguments(

@@ -44,3 +44,7 @@ large_hash_test.bin
 hash_test.txt
 sprint4.txt
 sprint4.sha256
+
+large_hmac_test.bin
+sprint5.txt
+sprint5.hmac
