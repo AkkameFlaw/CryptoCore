@@ -48,3 +48,8 @@ sprint4.sha256
 large_hmac_test.bin
 sprint5.txt
 sprint5.hmac
+
+sprint6.txt
+sprint6_*.bin
+sprint6_*.txt
+large_aad.bin
