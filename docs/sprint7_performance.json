@@ -1,0 +1,20 @@
+{
+  "10000": {
+    "cryptocore_seconds": 8.41148340003565,
+    "hashlib_seconds": 0.009487600065767765,
+    "slowdown": 886.5765147906208,
+    "match": true
+  },
+  "100000": {
+    "cryptocore_seconds": 81.30981160001829,
+    "hashlib_seconds": 0.10208699991926551,
+    "slowdown": 796.4756694223687,
+    "match": true
+  },
+  "1000000": {
+    "cryptocore_seconds": 772.4454094000394,
+    "hashlib_seconds": 0.9403912000125274,
+    "slowdown": 821.4085897334527,
+    "match": true
+  }
+}

@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cryptocore"
-version = "0.6.0"
-description = "AES-128 encryption, hashing, HMAC and authenticated encryption CLI"
+version = "0.7.0"
+description = "AES-128 encryption, authenticated encryption, hashing, HMAC and key derivation CLI"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

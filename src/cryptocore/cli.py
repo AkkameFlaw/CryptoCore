@@ -1,12 +1,15 @@
 from __future__ import annotations
-from contextlib import ExitStack
-from typing import BinaryIO
 
 import argparse
+import os
 import secrets
 import sys
+from contextlib import ExitStack
+from pathlib import Path
+from typing import BinaryIO
 
 from aead import EncryptThenMAC, EtMAuthenticationError
+from kdf import pbkdf2_hmac_sha256
 from modes import AuthenticationError, GCM
 
 from .csprng import generate_random_bytes
@@ -37,21 +40,12 @@ from .modes import (
 KEY_SIZE = 16
 IV_SIZE = 16
 GCM_NONCE_SIZE = 12
+SALT_SIZE = 16
+DEFAULT_ITERATIONS = 100_000
+DEFAULT_DERIVED_KEY_LENGTH = 32
 
-SUPPORTED_MODES = {
-    "ecb",
-    "cbc",
-    "cfb",
-    "ofb",
-    "ctr",
-    "gcm",
-    "etm",
-}
-
-AEAD_MODES = {
-    "gcm",
-    "etm",
-}
+SUPPORTED_MODES = {"ecb", "cbc", "cfb", "ofb", "ctr", "gcm", "etm"}
+AEAD_MODES = {"gcm", "etm"}
 
 
 class ArgumentError(ValueError):
@@ -61,99 +55,85 @@ class ArgumentError(ValueError):
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cryptocore",
-        description=(
-            "AES-128 encryption, decryption "
-            "and authenticated encryption"
-        ),
+        description="AES-128 encryption, decryption and authenticated encryption",
         epilog=(
-            "Use 'cryptocore dgst --help' "
-            "for hashing and HMAC."
+            "Use 'cryptocore dgst --help' for hashing and HMAC, "
+            "or 'cryptocore derive --help' for PBKDF2."
         ),
     )
 
-    parser.add_argument(
-        "--algorithm",
-        required=True,
-    )
+    parser.add_argument("--algorithm", required=True)
+    parser.add_argument("--mode", required=True)
 
-    parser.add_argument(
-        "--mode",
-        required=True,
-    )
-
-    operation_group = parser.add_mutually_exclusive_group(
-        required=True
-    )
-
-    operation_group.add_argument(
-        "--encrypt",
-        action="store_true",
-    )
-
-    operation_group.add_argument(
-        "--decrypt",
-        action="store_true",
-    )
+    operations = parser.add_mutually_exclusive_group(required=True)
+    operations.add_argument("--encrypt", action="store_true")
+    operations.add_argument("--decrypt", action="store_true")
 
     parser.add_argument("--key")
     parser.add_argument("--iv")
     parser.add_argument("--nonce")
     parser.add_argument("--aad")
+    parser.add_argument("--aad-file", dest="aad_file")
+    parser.add_argument("--input", required=True, dest="input_file")
+    parser.add_argument("--output", dest="output_file")
 
-    parser.add_argument(
-        "--input",
-        required=True,
-        dest="input_file",
-    )
-
-    parser.add_argument(
-        "--output",
-        dest="output_file",
-    )
-
-    parser.add_argument(
-        "--aad-file",
-        dest="aad_file",
-    )
     return parser
 
 
 def build_digest_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="cryptocore dgst",
-        description=(
-            "Calculate a cryptographic "
-            "message digest or HMAC"
-        ),
+        description="Calculate a cryptographic message digest or HMAC",
+    )
+
+    parser.add_argument("--algorithm", required=True)
+    parser.add_argument("--input", required=True, dest="input_file")
+    parser.add_argument("--output", dest="output_file")
+    parser.add_argument("--hmac", action="store_true")
+    parser.add_argument("--key")
+    parser.add_argument("--verify", dest="verify_file")
+
+    return parser
+
+
+def build_derive_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="cryptocore derive",
+        description="Derive a key using PBKDF2-HMAC-SHA256",
     )
 
     parser.add_argument(
         "--algorithm",
-        required=True,
+        choices=["pbkdf2"],
+        default="pbkdf2",
     )
 
+    passwords = parser.add_mutually_exclusive_group(required=True)
+
+    passwords.add_argument("--password")
+    passwords.add_argument(
+        "--password-env",
+        dest="password_env",
+        metavar="NAME",
+    )
+    passwords.add_argument(
+        "--password-file",
+        dest="password_file",
+        metavar="FILE",
+    )
+
+    parser.add_argument("--salt")
     parser.add_argument(
-        "--input",
-        required=True,
-        dest="input_file",
+        "--iterations",
+        type=int,
+        default=DEFAULT_ITERATIONS,
     )
-
     parser.add_argument(
-        "--output",
-        dest="output_file",
+        "--length",
+        type=int,
+        default=DEFAULT_DERIVED_KEY_LENGTH,
     )
-
-    parser.add_argument(
-        "--hmac",
-        action="store_true",
-    )
-
-    parser.add_argument("--key")
-
-    parser.add_argument(
-        "--verify",
-        dest="verify_file",
-    )
+    parser.add_argument("--output", dest="output_file")
 
     return parser
 
@@ -161,8 +141,7 @@ def build_digest_parser() -> argparse.ArgumentParser:
 def parse_key(key_text: str) -> bytes:
     if len(key_text) != 32:
         raise ArgumentError(
-            "--key must contain exactly "
-            "32 hexadecimal characters"
+            "--key must contain exactly 32 hexadecimal characters"
         )
 
     try:
@@ -181,18 +160,12 @@ def parse_key(key_text: str) -> bytes:
 
 
 def parse_hmac_key(key_text: str) -> bytes:
-    if len(key_text) % 2 != 0:
-        raise ArgumentError(
-            "--key must contain an even number "
-            "of hexadecimal characters"
-        )
-
-    if any(
-        character not in "0123456789abcdefABCDEF"
-        for character in key_text
+    if len(key_text) % 2 or any(
+        char not in "0123456789abcdefABCDEF"
+        for char in key_text
     ):
         raise ArgumentError(
-            "--key must be a valid hexadecimal string"
+            "--key must be an even-length hexadecimal string"
         )
 
     return bytes.fromhex(key_text)
@@ -201,8 +174,7 @@ def parse_hmac_key(key_text: str) -> bytes:
 def parse_iv(iv_text: str) -> bytes:
     if len(iv_text) != 32:
         raise ArgumentError(
-            "--iv must contain exactly "
-            "32 hexadecimal characters"
+            "--iv must contain exactly 32 hexadecimal characters"
         )
 
     try:
@@ -223,13 +195,12 @@ def parse_iv(iv_text: str) -> bytes:
 def parse_nonce(nonce_text: str) -> bytes:
     if len(nonce_text) != GCM_NONCE_SIZE * 2:
         raise ArgumentError(
-            "GCM nonce must contain exactly "
-            "24 hexadecimal characters"
+            "GCM nonce must contain exactly 24 hexadecimal characters"
         )
 
     if any(
-        character not in "0123456789abcdefABCDEF"
-        for character in nonce_text
+        char not in "0123456789abcdefABCDEF"
+        for char in nonce_text
     ):
         raise ArgumentError(
             "GCM nonce must be a valid hexadecimal string"
@@ -242,21 +213,47 @@ def parse_aad(aad_text: str | None) -> bytes:
     if aad_text is None or aad_text == "":
         return b""
 
-    if len(aad_text) % 2 != 0:
-        raise ArgumentError(
-            "--aad must contain an even number "
-            "of hexadecimal characters"
-        )
-
-    if any(
-        character not in "0123456789abcdefABCDEF"
-        for character in aad_text
+    if len(aad_text) % 2 or any(
+        char not in "0123456789abcdefABCDEF"
+        for char in aad_text
     ):
         raise ArgumentError(
-            "--aad must be a valid hexadecimal string"
+            "--aad must be an even-length hexadecimal string"
         )
 
     return bytes.fromhex(aad_text)
+
+
+def resolve_salt(salt_text: str | None) -> bytes:
+    if salt_text is None:
+        return generate_random_bytes(SALT_SIZE)
+
+    if len(salt_text) % 2 or any(
+        char not in "0123456789abcdefABCDEF"
+        for char in salt_text
+    ):
+        raise ArgumentError(
+            "--salt must be an even-length hexadecimal string"
+        )
+
+    return bytes.fromhex(salt_text)
+
+
+def resolve_password(args: argparse.Namespace) -> bytes:
+    if args.password is not None:
+        return args.password.encode("utf-8")
+
+    if args.password_env is not None:
+        value = os.environ.get(args.password_env)
+
+        if value is None:
+            raise ArgumentError(
+                f"environment variable not found: {args.password_env}"
+            )
+
+        return value.encode("utf-8")
+
+    return Path(args.password_file).read_bytes()
 
 
 def is_weak_key(key: bytes) -> bool:
@@ -286,8 +283,7 @@ def resolve_key(args: argparse.Namespace) -> bytes:
         key = generate_random_bytes(KEY_SIZE)
 
         print(
-            "[INFO] Generated random key: "
-            f"{key.hex()}"
+            f"[INFO] Generated random key: {key.hex()}"
         )
 
         return key
@@ -307,10 +303,7 @@ def get_default_output(
     input_file: str,
     decrypt: bool,
 ) -> str:
-    if decrypt:
-        return f"{input_file}.dec"
-
-    return f"{input_file}.enc"
+    return f"{input_file}.dec" if decrypt else f"{input_file}.enc"
 
 
 def validate_arguments(args: argparse.Namespace) -> str:
@@ -323,8 +316,7 @@ def validate_arguments(args: argparse.Namespace) -> str:
 
     if mode not in SUPPORTED_MODES:
         raise ArgumentError(
-            "--mode must be one of: "
-            "ecb, cbc, cfb, ofb, ctr, gcm, etm"
+            "--mode must be one of: ecb, cbc, cfb, ofb, ctr, gcm, etm"
         )
 
     if args.iv is not None and args.nonce is not None:
@@ -336,8 +328,7 @@ def validate_arguments(args: argparse.Namespace) -> str:
         args.iv is not None or args.nonce is not None
     ):
         raise ArgumentError(
-            "--iv and --nonce must not be used "
-            "with --encrypt"
+            "--iv and --nonce must not be used with --encrypt"
         )
 
     if mode == "ecb" and args.iv is not None:
@@ -416,9 +407,7 @@ def decrypt_data(
 ) -> bytes:
     if mode == "gcm":
         explicit_nonce = (
-            nonce_text
-            if nonce_text is not None
-            else iv_text
+            nonce_text if nonce_text is not None else iv_text
         )
 
         if explicit_nonce is not None:
@@ -452,8 +441,7 @@ def decrypt_data(
     else:
         if len(data) < IV_SIZE:
             raise ValueError(
-                "input file is too short "
-                "to contain a 16-byte IV"
+                "input file is too short to contain a 16-byte IV"
             )
 
         iv = data[:IV_SIZE]
@@ -500,9 +488,7 @@ def run_digest(argv: list[str]) -> int:
             hmac_value = hmac_file(args.input_file, key)
 
             if args.verify_file:
-                expected = read_expected_hmac(
-                    args.verify_file
-                )
+                expected = read_expected_hmac(args.verify_file)
 
                 if secrets.compare_digest(
                     hmac_value,
@@ -511,20 +497,15 @@ def run_digest(argv: list[str]) -> int:
                     print(
                         "[OK] HMAC verification successful"
                     )
-
                     return 0
 
                 print(
                     "[ERROR] HMAC verification failed",
                     file=sys.stderr,
                 )
-
                 return 1
 
-            result = format_hmac(
-                hmac_value,
-                args.input_file,
-            )
+            result = format_hmac(hmac_value, args.input_file)
 
         else:
             if args.key is not None:
@@ -541,32 +522,71 @@ def run_digest(argv: list[str]) -> int:
                 args.input_file,
                 args.algorithm,
             )
-
             result = format_digest(
                 hash_value,
                 args.input_file,
             )
 
         if args.output_file:
-            write_digest_output(
-                args.output_file,
-                result,
-            )
+            write_digest_output(args.output_file, result)
         else:
             print(result)
 
+        return 0
+
+    except (ArgumentError, ValueError, OSError) as exc:
+        print(
+            f"cryptocore: error: {exc}",
+            file=sys.stderr,
+        )
+        return 2
+
+
+def run_derive(argv: list[str]) -> int:
+    parser = build_derive_parser()
+
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as exc:
+        return int(exc.code)
+
+    try:
+        if args.iterations < 1:
+            raise ArgumentError(
+                "--iterations must be at least 1"
+            )
+
+        if args.length < 1:
+            raise ArgumentError(
+                "--length must be positive"
+            )
+
+        salt = resolve_salt(args.salt)
+        password = resolve_password(args)
+
+        key = pbkdf2_hmac_sha256(
+            password,
+            salt,
+            args.iterations,
+            args.length,
+        )
+
+        if args.output_file is not None:
+            Path(args.output_file).write_bytes(key)
+
+        print(f"{key.hex()}  {salt.hex()}")
         return 0
 
     except (
         ArgumentError,
         ValueError,
         OSError,
+        UnicodeError,
     ) as exc:
         print(
             f"cryptocore: error: {exc}",
             file=sys.stderr,
         )
-
         return 2
 
 
@@ -577,6 +597,9 @@ def run(argv: list[str] | None = None) -> int:
 
     if arguments and arguments[0] == "dgst":
         return run_digest(arguments[1:])
+
+    if arguments and arguments[0] == "derive":
+        return run_derive(arguments[1:])
 
     parser = build_parser()
 
@@ -641,7 +664,6 @@ def run(argv: list[str] | None = None) -> int:
             f"[ERROR] {exc}",
             file=sys.stderr,
         )
-
         return 1
 
     except (
@@ -655,7 +677,6 @@ def run(argv: list[str] | None = None) -> int:
             f"cryptocore: error: {exc}",
             file=sys.stderr,
         )
-
         return 2
 
 
