@@ -1,3 +1,5 @@
+"""AES-128 GCM with GHASH and authenticated AAD processing."""
+
 import secrets
 from typing import BinaryIO
 
@@ -13,10 +15,27 @@ CHUNK_SIZE = 8192
 
 
 class AuthenticationError(ValueError):
+    """Raised when GCM authentication or input framing fails.
+
+    Notes:
+        Consult docs/API.md for construction, safety, and examples.
+    """
     pass
 
 
 def _gf_multiply(x: int, y: int) -> int:
+    """Multiply two 128-bit field elements in GHASH GF(2^128).
+    
+        Args:
+            x: Parameter used by this operation; see docs/API.md.
+            y: Parameter used by this operation; see docs/API.md.
+    
+        Returns:
+            Integer result or process exit code.
+    
+        Raises:
+            TypeError, ValueError or AuthenticationError.
+    """
     result = 0
     value = y
 
@@ -30,7 +49,23 @@ def _gf_multiply(x: int, y: int) -> int:
 
 
 class _GFMultiplier:
+    """Precomputed GHASH multiplier for GF(2^128).
+
+    Notes:
+        Consult docs/API.md for construction, safety, and examples.
+    """
     def __init__(self, multiplier: int) -> None:
+        """Construct the object and validate initialization parameters.
+    
+        Args:
+            multiplier: Parameter used by this operation; see docs/API.md.
+    
+        Returns:
+            Nothing; raises on validation failure.
+    
+        Raises:
+            TypeError, ValueError or AuthenticationError.
+    """
         contributions = []
         value = multiplier
 
@@ -56,6 +91,17 @@ class _GFMultiplier:
             self._tables.append(table)
 
     def multiply(self, value: int) -> int:
+        """Multiply a field element by the precomputed GHASH subkey.
+    
+        Args:
+            value: Input word or field element.
+    
+        Returns:
+            Integer result or process exit code.
+    
+        Raises:
+            TypeError, ValueError or AuthenticationError.
+    """
         result = 0
 
         for position, table in enumerate(self._tables):
@@ -66,10 +112,27 @@ class _GFMultiplier:
 
 
 class GCM:
+    """AES-128 GCM instance with one-use encryption nonce and AAD authentication.
+
+    Notes:
+        Consult docs/API.md for construction, safety, and examples.
+    """
     tag_size = TAG_SIZE
     nonce_size = NONCE_SIZE
 
     def __init__(self, key: bytes, nonce: bytes | None = None) -> None:
+        """Construct the object and validate initialization parameters.
+    
+        Args:
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+            nonce: Nonce: 12 bytes for CLI GCM; 16 bytes for EtM.
+    
+        Returns:
+            Nothing; raises on validation failure.
+    
+        Raises:
+            TypeError, ValueError or AuthenticationError.
+    """
         if not isinstance(key, (bytes, bytearray, memoryview)):
             raise TypeError("key must be bytes-like")
 
@@ -98,6 +161,14 @@ class GCM:
         self._encryption_used = False
 
     def _initial_counter(self) -> bytes:
+        """Form the initial GCM J0 counter block for the nonce.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError, ValueError or AuthenticationError.
+    """
         if len(self.nonce) == NONCE_SIZE:
             return self.nonce + b"\x00\x00\x00\x01"
 
@@ -105,6 +176,17 @@ class GCM:
 
     @staticmethod
     def _increment_counter(block: bytes) -> bytes:
+        """Increment the final 32 bits of the GCM counter.
+    
+        Args:
+            block: Parameter used by this operation; see docs/API.md.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError, ValueError or AuthenticationError.
+    """
         counter = (
             int.from_bytes(block[12:], "big") + 1
         ) & 0xFFFFFFFF
@@ -112,6 +194,17 @@ class GCM:
         return block[:12] + counter.to_bytes(4, "big")
 
     def _counter_crypt(self, data: bytes) -> bytes:
+        """Apply the AES-CTR transform used internally by GCM.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError, ValueError or AuthenticationError.
+    """
         if len(data) > ((1 << 32) - 2) * 16:
             raise ValueError("GCM input exceeds counter limit")
 
@@ -132,6 +225,17 @@ class GCM:
 
     @staticmethod
     def _iter_chunks(source: bytes | BinaryIO):
+        """Yield authenticated-associated-data bytes in bounded-size chunks.
+    
+        Args:
+            source: Parameter used by this operation; see docs/API.md.
+    
+        Returns:
+            A value of type object; see docs/API.md.
+    
+        Raises:
+            TypeError, ValueError or AuthenticationError.
+    """
         if isinstance(source, (bytes, bytearray, memoryview)):
             data = memoryview(source)
 
@@ -160,6 +264,18 @@ class GCM:
         accumulator: int,
         source: bytes | BinaryIO,
     ) -> tuple[int, int]:
+        """Accumulate GHASH over padded binary chunks.
+    
+        Args:
+            accumulator: Parameter used by this operation; see docs/API.md.
+            source: Parameter used by this operation; see docs/API.md.
+    
+        Returns:
+            A value of type tuple[int, int]; see docs/API.md.
+    
+        Raises:
+            TypeError, ValueError or AuthenticationError.
+    """
         remainder = b""
         total = 0
 
@@ -197,6 +313,18 @@ class GCM:
         aad: bytes | BinaryIO,
         ciphertext: bytes,
     ) -> bytes:
+        """Return GHASH over AAD and ciphertext with length-domain separation.
+    
+        Args:
+            aad: Authenticated additional bytes, or a binary stream for GCM.
+            ciphertext: Encrypted bytes; may include nonce and tag depending on API.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError, ValueError or AuthenticationError.
+    """
         accumulator, aad_size = self._ghash_input(0, aad)
 
         accumulator, ciphertext_size = self._ghash_input(
@@ -224,6 +352,21 @@ class GCM:
         plaintext: bytes,
         aad: bytes | BinaryIO = b"",
     ) -> bytes:
+        """Encrypt input; return nonce || ciphertext || authentication tag.
+    
+        Args:
+            plaintext: Plaintext bytes to encrypt.
+            aad: Authenticated additional bytes, or a binary stream for GCM.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError, ValueError or AuthenticationError.
+    
+        Security:
+            Never log keys or passwords; see docs/SECURITY_AUDIT.md.
+    """
         if self._encryption_used:
             raise ValueError(
                 "nonce has already been used for encryption"
@@ -254,6 +397,22 @@ class GCM:
         aad: bytes | BinaryIO = b"",
         includes_nonce: bool = True,
     ) -> bytes:
+        """Verify authentication and return the original plaintext bytes.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            aad: Authenticated additional bytes, or a binary stream for GCM.
+            includes_nonce: Whether GCM input starts with an explicit nonce prefix.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError, ValueError or AuthenticationError.
+    
+        Security:
+            Never log keys or passwords; see docs/SECURITY_AUDIT.md.
+    """
         if not isinstance(data, (bytes, bytearray, memoryview)):
             raise TypeError("data must be bytes-like")
 

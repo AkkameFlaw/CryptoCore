@@ -1,3 +1,5 @@
+"""Public exports of the modes package."""
+
 from .gcm import AuthenticationError, GCM
 
 

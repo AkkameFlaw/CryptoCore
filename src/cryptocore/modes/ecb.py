@@ -1,3 +1,5 @@
+"""AES-128 ECB mode and PKCS#7 encoding/decoding."""
+
 from Crypto.Cipher import AES
 
 from .common import (
@@ -7,6 +9,11 @@ from .common import (
 
 
 class PaddingError(ValueError):
+    """Raised when PKCS#7 padding is malformed.
+
+    Notes:
+        Consult docs/API.md for construction, safety, and examples.
+    """
     pass
 
 
@@ -14,6 +21,18 @@ def pkcs7_pad(
     data: bytes,
     block_size: int = BLOCK_SIZE,
 ) -> bytes:
+    """Append PKCS#7 padding so output is a multiple of block_size.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            block_size: PKCS#7 block width in bytes (1..255).
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ValueError or PaddingError on malformed keys, IVs or padding.
+    """
     if block_size <= 0 or block_size > 255:
         raise ValueError(
             "block_size must be in range 1..255"
@@ -34,6 +53,21 @@ def pkcs7_unpad(
     data: bytes,
     block_size: int = BLOCK_SIZE,
 ) -> bytes:
+    """Validate and strip PKCS#7 padding.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            block_size: PKCS#7 block width in bytes (1..255).
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ValueError or PaddingError on malformed keys, IVs or padding.
+    
+        Security:
+            Never log keys or passwords; see docs/SECURITY_AUDIT.md.
+    """
     if not data:
         raise PaddingError(
             "invalid PKCS#7 padded data length"
@@ -75,6 +109,18 @@ def encrypt_ecb(
     data: bytes,
     key: bytes,
 ) -> bytes:
+    """Encrypt a message with AES-128 ECB after PKCS#7 padding.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ValueError or PaddingError on malformed keys, IVs or padding.
+    """
     validate_key(key)
 
     padded_data = pkcs7_pad(data)
@@ -106,6 +152,18 @@ def decrypt_ecb(
     data: bytes,
     key: bytes,
 ) -> bytes:
+    """Decrypt AES-128 ECB and remove PKCS#7 padding.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ValueError or PaddingError on malformed keys, IVs or padding.
+    """
     validate_key(key)
 
     if not data:

@@ -1,3 +1,5 @@
+"""Streaming file hashing and HMAC utilities used by the CLI."""
+
 import sys
 from typing import BinaryIO
 
@@ -16,6 +18,17 @@ HASH_ALGORITHMS = {
 def create_hasher(
     algorithm: str,
 ):
+    """Construct the requested SHA256 or SHA3_256 incremental hasher.
+    
+        Args:
+            algorithm: Algorithm identifier, e.g., sha256 or sha3-256.
+    
+        Returns:
+            A value of type object; see docs/API.md.
+    
+        Raises:
+            ValueError or OSError for invalid algorithms, malformed verification files or I/O.
+    """
     normalized = algorithm.lower()
 
     hasher_class = HASH_ALGORITHMS.get(
@@ -35,6 +48,18 @@ def hash_stream(
     stream: BinaryIO,
     algorithm: str,
 ) -> str:
+    """Hash a binary stream in bounded-size chunks and return HEX.
+    
+        Args:
+            stream: Binary file-like object exposing read().
+            algorithm: Algorithm identifier, e.g., sha256 or sha3-256.
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            ValueError or OSError for invalid algorithms, malformed verification files or I/O.
+    """
     hasher = create_hasher(
         algorithm
     )
@@ -58,6 +83,18 @@ def hash_file(
     input_file: str,
     algorithm: str,
 ) -> str:
+    """Hash the specified file or standard input (-) and return HEX.
+    
+        Args:
+            input_file: Path to input data; digest operations support - for stdin.
+            algorithm: Algorithm identifier, e.g., sha256 or sha3-256.
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            ValueError or OSError for invalid algorithms, malformed verification files or I/O.
+    """
     if input_file == "-":
         return hash_stream(
             sys.stdin.buffer,
@@ -78,6 +115,18 @@ def hmac_stream(
     stream: BinaryIO,
     key: bytes,
 ) -> str:
+    """Compute HMAC-SHA256 over a binary stream and return HEX.
+    
+        Args:
+            stream: Binary file-like object exposing read().
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            ValueError or OSError for invalid algorithms, malformed verification files or I/O.
+    """
     hmac = HMAC(
         key
     )
@@ -101,6 +150,18 @@ def hmac_file(
     input_file: str,
     key: bytes,
 ) -> str:
+    """Compute HMAC-SHA256 over the file or standard input (-).
+    
+        Args:
+            input_file: Path to input data; digest operations support - for stdin.
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            ValueError or OSError for invalid algorithms, malformed verification files or I/O.
+    """
     if input_file == "-":
         return hmac_stream(
             sys.stdin.buffer,
@@ -121,6 +182,18 @@ def format_digest(
     hash_value: str,
     input_file: str,
 ) -> str:
+    """Format a hash and path with two separating spaces.
+    
+        Args:
+            hash_value: Hash string in HEX.
+            input_file: Path to input data; digest operations support - for stdin.
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            ValueError or OSError for invalid algorithms, malformed verification files or I/O.
+    """
     return (
         f"{hash_value}  "
         f"{input_file}"
@@ -131,6 +204,18 @@ def format_hmac(
     hmac_value: str,
     input_file: str,
 ) -> str:
+    """Format an HMAC and path with one separating space.
+    
+        Args:
+            hmac_value: Message authentication code in HEX.
+            input_file: Path to input data; digest operations support - for stdin.
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            ValueError or OSError for invalid algorithms, malformed verification files or I/O.
+    """
     return (
         f"{hmac_value} "
         f"{input_file}"
@@ -140,6 +225,17 @@ def format_hmac(
 def read_expected_hmac(
     input_file: str,
 ) -> str:
+    """Read and validate the expected 32-byte HMAC from a text file.
+    
+        Args:
+            input_file: Path to input data; digest operations support - for stdin.
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            ValueError or OSError for invalid algorithms, malformed verification files or I/O.
+    """
     with open(
         input_file,
         "r",
@@ -183,6 +279,18 @@ def write_digest_output(
     output_file: str,
     result: str,
 ) -> None:
+    """Write the formatted digest or HMAC line to a UTF-8 text file.
+    
+        Args:
+            output_file: Destination file path for the operation.
+            result: Formatted text to save.
+    
+        Returns:
+            Nothing; raises on validation failure.
+    
+        Raises:
+            ValueError or OSError for invalid algorithms, malformed verification files or I/O.
+    """
     with open(
         output_file,
         "w",

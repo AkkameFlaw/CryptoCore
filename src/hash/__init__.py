@@ -1,3 +1,5 @@
+"""Public exports of the hash package."""
+
 from .sha256 import SHA256
 from .sha3_256 import SHA3_256
 

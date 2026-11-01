@@ -1,3 +1,5 @@
+"""AES-128 CBC mode with PKCS#7 padding."""
+
 from Crypto.Cipher import AES
 
 from .common import (
@@ -18,6 +20,19 @@ def encrypt_cbc(
     key: bytes,
     iv: bytes,
 ) -> bytes:
+    """Encrypt a message with AES-128 CBC and PKCS#7 padding.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+            iv: 16-byte initialization vector or CTR initial counter.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ValueError or PaddingError on malformed keys, IVs or padding.
+    """
     validate_key(key)
     validate_iv(iv)
 
@@ -64,6 +79,19 @@ def decrypt_cbc(
     key: bytes,
     iv: bytes,
 ) -> bytes:
+    """Decrypt AES-128 CBC and remove PKCS#7 padding.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+            iv: 16-byte initialization vector or CTR initial counter.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ValueError or PaddingError on malformed keys, IVs or padding.
+    """
     validate_key(key)
     validate_iv(iv)
 

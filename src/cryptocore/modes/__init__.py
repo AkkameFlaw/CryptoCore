@@ -1,3 +1,5 @@
+"""Public exports of the cryptocore.modes package."""
+
 from .cbc import (
     decrypt_cbc,
     encrypt_cbc,

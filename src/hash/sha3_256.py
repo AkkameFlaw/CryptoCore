@@ -1,3 +1,5 @@
+"""Pure-Python streaming SHA3-256 (FIPS 202)."""
+
 MASK64 = 0xFFFFFFFFFFFFFFFF
 
 ROUND_CONSTANTS = (
@@ -40,6 +42,18 @@ def _rotate_left(
     value: int,
     amount: int,
 ) -> int:
+    """Rotate a 64-bit word left.
+    
+        Args:
+            value: Input word or field element.
+            amount: Number of bits to rotate.
+    
+        Returns:
+            Integer result or process exit code.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
     if amount == 0:
         return value & MASK64
 
@@ -52,6 +66,17 @@ def _rotate_left(
 def _keccak_f(
     state: list[int],
 ) -> None:
+    """Apply the Keccak-f[1600] permutation.
+    
+        Args:
+            state: Parameter used by this operation; see docs/API.md.
+    
+        Returns:
+            Nothing; raises on validation failure.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
     for round_constant in ROUND_CONSTANTS:
         columns = [
             state[x]
@@ -124,18 +149,39 @@ def _keccak_f(
 
 
 class SHA3_256:
+    """Incremental SHA3-256 hash context.
+
+    Notes:
+        Consult docs/API.md for construction, safety, and examples.
+    """
     block_size = 136
     digest_size = 32
 
     def __init__(
         self,
     ) -> None:
+        """Construct the object and validate initialization parameters.
+    
+        Returns:
+            Nothing; raises on validation failure.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         self._state = [0] * 25
         self._buffer = bytearray()
 
     def copy(
         self,
     ) -> "SHA3_256":
+        """Return an independent copy of the current hashing or MAC state.
+    
+        Returns:
+            A value of type 'SHA3_256'; see docs/API.md.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         clone = self.__class__()
 
         clone._state = (
@@ -154,6 +200,17 @@ class SHA3_256:
         | bytearray
         | memoryview,
     ) -> "SHA3_256":
+        """Absorb additional binary input and return the updated object.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+    
+        Returns:
+            A value of type 'SHA3_256'; see docs/API.md.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         if not isinstance(
             data,
             (
@@ -194,6 +251,17 @@ class SHA3_256:
         self,
         block: bytes,
     ) -> None:
+        """Perform the  absorb block operation in hash.sha3_256.
+    
+        Args:
+            block: Parameter used by this operation; see docs/API.md.
+    
+        Returns:
+            Nothing; raises on validation failure.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         if (
             len(block)
             != self.block_size
@@ -228,6 +296,14 @@ class SHA3_256:
     def _finalize(
         self,
     ) -> None:
+        """Perform the  finalize operation in hash.sha3_256.
+    
+        Returns:
+            Nothing; raises on validation failure.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         padding_length = (
             self.block_size
             - len(self._buffer)
@@ -262,6 +338,14 @@ class SHA3_256:
     def digest(
         self,
     ) -> bytes:
+        """Return final digest bytes without modifying the original state.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         clone = self.copy()
 
         clone._finalize()
@@ -281,6 +365,14 @@ class SHA3_256:
     def hexdigest(
         self,
     ) -> str:
+        """Return the digest as a lowercase HEX string.
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         return (
             self.digest().hex()
         )
@@ -292,6 +384,17 @@ class SHA3_256:
         | bytearray
         | memoryview,
     ) -> str:
+        """Compute the digest of supplied data (class convenience method).
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         instance = cls()
 
         instance.update(

@@ -1,1 +1,3 @@
-__version__ = "0.7.0"
+"""Public exports of the cryptocore package."""
+
+__version__ = "0.8.0"

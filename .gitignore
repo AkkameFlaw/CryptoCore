@@ -53,3 +53,15 @@ sprint6.txt
 sprint6_*.bin
 sprint6_*.txt
 large_aad.bin
+
+.coverage
+.coverage.*
+htmlcov/
+coverage.json
+# Sprint 7/8 local secrets and coverage files
+sprint7.key
+password.bin
+.coverage
+.coverage.*
+htmlcov/
+coverage.json

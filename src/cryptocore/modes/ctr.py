@@ -1,3 +1,5 @@
+"""AES-128 CTR mode with a 128-bit big-endian counter."""
+
 from Crypto.Cipher import AES
 
 from .common import (
@@ -16,6 +18,19 @@ def process_ctr(
     key: bytes,
     iv: bytes,
 ) -> bytes:
+    """Apply the symmetric AES-CTR keystream transform.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+            iv: 16-byte initialization vector or CTR initial counter.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ValueError or PaddingError on malformed keys, IVs or padding.
+    """
     validate_key(key)
     validate_iv(iv)
 
@@ -70,6 +85,19 @@ def encrypt_ctr(
     key: bytes,
     iv: bytes,
 ) -> bytes:
+    """Encrypt any-length bytes with AES-128 CTR.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+            iv: 16-byte initialization vector or CTR initial counter.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ValueError or PaddingError on malformed keys, IVs or padding.
+    """
     return process_ctr(
         data,
         key,
@@ -82,6 +110,19 @@ def decrypt_ctr(
     key: bytes,
     iv: bytes,
 ) -> bytes:
+    """Decrypt any-length bytes with AES-128 CTR.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+            iv: 16-byte initialization vector or CTR initial counter.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ValueError or PaddingError on malformed keys, IVs or padding.
+    """
     return process_ctr(
         data,
         key,

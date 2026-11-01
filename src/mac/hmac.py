@@ -1,3 +1,5 @@
+"""Pure-Python HMAC-SHA256 implemented using the local SHA256 class."""
+
 from hash import SHA256
 
 
@@ -7,6 +9,11 @@ OPAD = 0x5C
 
 
 class HMAC:
+    """Incremental HMAC-SHA256 context using the bundled SHA256 algorithm.
+
+    Notes:
+        Consult docs/API.md for construction, safety, and examples.
+    """
     block_size = BLOCK_SIZE
     digest_size = 32
 
@@ -16,6 +23,17 @@ class HMAC:
         | bytearray
         | memoryview,
     ) -> None:
+        """Construct the object and validate initialization parameters.
+    
+        Args:
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+    
+        Returns:
+            Nothing; raises on validation failure.
+    
+        Raises:
+            TypeError on unsupported key or data type.
+    """
         if not isinstance(
             key,
             (
@@ -58,6 +76,17 @@ class HMAC:
         self,
         key: bytes,
     ) -> bytes:
+        """Normalize HMAC key to one 64-byte SHA-256 block.
+    
+        Args:
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError on unsupported key or data type.
+    """
         if len(key) > BLOCK_SIZE:
             hasher = SHA256()
             hasher.update(
@@ -82,6 +111,14 @@ class HMAC:
     def copy(
         self,
     ) -> "HMAC":
+        """Return an independent copy of the current hashing or MAC state.
+    
+        Returns:
+            A value of type 'HMAC'; see docs/API.md.
+    
+        Raises:
+            TypeError on unsupported key or data type.
+    """
         clone = object.__new__(
             self.__class__
         )
@@ -102,6 +139,17 @@ class HMAC:
         | bytearray
         | memoryview,
     ) -> "HMAC":
+        """Absorb additional binary input and return the updated object.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+    
+        Returns:
+            A value of type 'HMAC'; see docs/API.md.
+    
+        Raises:
+            TypeError on unsupported key or data type.
+    """
         if not isinstance(
             data,
             (
@@ -123,6 +171,14 @@ class HMAC:
     def digest(
         self,
     ) -> bytes:
+        """Return final digest bytes without modifying the original state.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError on unsupported key or data type.
+    """
         inner = (
             self._inner.copy()
         )
@@ -146,6 +202,14 @@ class HMAC:
     def hexdigest(
         self,
     ) -> str:
+        """Return the digest as a lowercase HEX string.
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            TypeError on unsupported key or data type.
+    """
         return (
             self.digest().hex()
         )
@@ -160,6 +224,18 @@ class HMAC:
         | bytearray
         | memoryview,
     ) -> str:
+        """Compute an HMAC and return its lowercase HEX representation.
+    
+        Args:
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            TypeError on unsupported key or data type.
+    """
         instance = cls(
             key
         )

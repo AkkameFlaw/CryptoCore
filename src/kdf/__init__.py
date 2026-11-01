@@ -1,3 +1,5 @@
+"""Public exports of the kdf package."""
+
 from .pbkdf2 import pbkdf2_hmac_sha256
 from .hkdf import derive_key
 

@@ -1,3 +1,5 @@
+"""Command-line interface for AES, hashes, HMAC, PBKDF2 and authenticated modes."""
+
 from __future__ import annotations
 
 import argparse
@@ -50,10 +52,23 @@ AEAD_MODES = {"gcm", "etm"}
 
 
 class ArgumentError(ValueError):
+    """Command-line argument validation error.
+
+    Notes:
+        Consult docs/API.md for construction, safety, and examples.
+    """
     pass
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """Build the AES encryption/decryption command-line parser.
+    
+        Returns:
+            A value of type argparse.ArgumentParser; see docs/API.md.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     parser = argparse.ArgumentParser(
         prog="cryptocore",
         description="AES-128 encryption, decryption and authenticated encryption",
@@ -82,6 +97,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def build_digest_parser() -> argparse.ArgumentParser:
+    """Build the hashing and HMAC subcommand parser.
+    
+        Returns:
+            A value of type argparse.ArgumentParser; see docs/API.md.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     parser = argparse.ArgumentParser(
         prog="cryptocore dgst",
         description="Calculate a cryptographic message digest or HMAC",
@@ -98,6 +121,14 @@ def build_digest_parser() -> argparse.ArgumentParser:
 
 
 def build_derive_parser() -> argparse.ArgumentParser:
+    """Build the PBKDF2 key-derivation subcommand parser.
+    
+        Returns:
+            A value of type argparse.ArgumentParser; see docs/API.md.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     parser = argparse.ArgumentParser(
         prog="cryptocore derive",
         description="Derive a key using PBKDF2-HMAC-SHA256",
@@ -140,6 +171,17 @@ def build_derive_parser() -> argparse.ArgumentParser:
 
 
 def parse_key(key_text: str) -> bytes:
+    """Validate and decode a 16-byte AES key supplied as 32 HEX characters.
+    
+        Args:
+            key_text: Secret key encoded as HEX.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     if len(key_text) != 32:
         raise ArgumentError(
             "--key must contain exactly 32 hexadecimal characters"
@@ -161,6 +203,17 @@ def parse_key(key_text: str) -> bytes:
 
 
 def parse_hmac_key(key_text: str) -> bytes:
+    """Validate and decode an arbitrary-length HEX HMAC key.
+    
+        Args:
+            key_text: Secret key encoded as HEX.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     if len(key_text) % 2 or any(
         char not in "0123456789abcdefABCDEF"
         for char in key_text
@@ -173,6 +226,17 @@ def parse_hmac_key(key_text: str) -> bytes:
 
 
 def parse_iv(iv_text: str) -> bytes:
+    """Validate and decode an AES mode IV represented by 32 HEX characters.
+    
+        Args:
+            iv_text: Optional IV encoded as HEX.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     if len(iv_text) != 32:
         raise ArgumentError(
             "--iv must contain exactly 32 hexadecimal characters"
@@ -194,6 +258,17 @@ def parse_iv(iv_text: str) -> bytes:
 
 
 def parse_nonce(nonce_text: str) -> bytes:
+    """Validate and decode a 12-byte GCM nonce represented by 24 HEX characters.
+    
+        Args:
+            nonce_text: Optional GCM nonce encoded as HEX.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     if len(nonce_text) != GCM_NONCE_SIZE * 2:
         raise ArgumentError(
             "GCM nonce must contain exactly 24 hexadecimal characters"
@@ -211,6 +286,17 @@ def parse_nonce(nonce_text: str) -> bytes:
 
 
 def parse_aad(aad_text: str | None) -> bytes:
+    """Decode optional HEX-encoded authenticated associated data.
+    
+        Args:
+            aad_text: Optional AAD encoded as HEX.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     if aad_text is None or aad_text == "":
         return b""
 
@@ -226,6 +312,17 @@ def parse_aad(aad_text: str | None) -> bytes:
 
 
 def resolve_salt(salt_text: str | None) -> bytes:
+    """Parse HEX salt or generate a fresh random 16-byte salt.
+    
+        Args:
+            salt_text: Optional salt encoded as HEX.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     if salt_text is None:
         return generate_random_bytes(SALT_SIZE)
 
@@ -242,6 +339,20 @@ def resolve_salt(salt_text: str | None) -> bytes:
 
 def resolve_password(args: argparse.Namespace) -> bytearray:
     # Пароль не записывается в журналы и не выводится в stdout/stderr.
+    """Read a PBKDF2 password into a mutable bytearray without logging its plaintext.
+    
+        Args:
+            args: Parsed command-line options in an argparse.Namespace.
+    
+        Returns:
+            A value of type bytearray; see docs/API.md.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    
+        Security:
+            Never log keys or passwords; see docs/SECURITY_AUDIT.md.
+    """
     if args.password is not None:
         password = bytearray(args.password.encode("utf-8"))
         args.password = None
@@ -267,6 +378,17 @@ def resolve_password(args: argparse.Namespace) -> bytearray:
 
 
 def is_weak_key(key: bytes) -> bool:
+    """Identify trivial repeated-byte or arithmetic-sequence AES keys.
+    
+        Args:
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+    
+        Returns:
+            Validation/condition result.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     if len(set(key)) == 1:
         return True
 
@@ -284,6 +406,17 @@ def is_weak_key(key: bytes) -> bool:
 
 
 def resolve_key(args: argparse.Namespace) -> bytes:
+    """Parse a supplied AES key or generate a new random key for encryption.
+    
+        Args:
+            args: Parsed command-line options in an argparse.Namespace.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     if args.key is None:
         if args.decrypt:
             raise ArgumentError(
@@ -313,10 +446,33 @@ def get_default_output(
     input_file: str,
     decrypt: bool,
 ) -> str:
+    """Choose the default encrypted or decrypted file path.
+    
+        Args:
+            input_file: Path to input data; digest operations support - for stdin.
+            decrypt: Parameter used by this operation; see docs/API.md.
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     return f"{input_file}.dec" if decrypt else f"{input_file}.enc"
 
 
 def validate_arguments(args: argparse.Namespace) -> str:
+    """Validate compatibility of AES mode, operation and nonce/AAD options.
+    
+        Args:
+            args: Parsed command-line options in an argparse.Namespace.
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     if args.algorithm.lower() != "aes":
         raise ArgumentError(
             "--algorithm must be 'aes'"
@@ -381,6 +537,23 @@ def encrypt_data(
     mode: str,
     aad: bytes | BinaryIO = b"",
 ) -> bytes:
+    """Encrypt data using the selected mode and return the self-contained payload.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+            mode: AES mode name: ecb, cbc, cfb, ofb, ctr, gcm or etm.
+            aad: Authenticated additional bytes, or a binary stream for GCM.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    
+        Security:
+            Never log keys or passwords; see docs/SECURITY_AUDIT.md.
+    """
     if mode == "gcm":
         return GCM(key).encrypt(data, aad)
 
@@ -415,6 +588,25 @@ def decrypt_data(
     aad: bytes | BinaryIO = b"",
     nonce_text: str | None = None,
 ) -> bytes:
+    """Decrypt payload after validation; AEAD modes authenticate before releasing plaintext.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+            mode: AES mode name: ecb, cbc, cfb, ofb, ctr, gcm or etm.
+            iv_text: Optional IV encoded as HEX.
+            aad: Authenticated additional bytes, or a binary stream for GCM.
+            nonce_text: Optional GCM nonce encoded as HEX.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    
+        Security:
+            Never log keys or passwords; see docs/SECURITY_AUDIT.md.
+    """
     if mode == "gcm":
         explicit_nonce = (
             nonce_text if nonce_text is not None else iv_text
@@ -470,6 +662,17 @@ def decrypt_data(
 
 
 def run_digest(argv: list[str]) -> int:
+    """Execute the digest/HMAC CLI and return a process exit status.
+    
+        Args:
+            argv: Argument list excluding the executable name.
+    
+        Returns:
+            Integer result or process exit code.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     parser = build_digest_parser()
 
     try:
@@ -553,6 +756,20 @@ def run_digest(argv: list[str]) -> int:
 
 
 def run_derive(argv: list[str]) -> int:
+    """Execute PBKDF2 CLI, emit key HEX and salt HEX, and best-effort zero mutable buffers.
+    
+        Args:
+            argv: Argument list excluding the executable name.
+    
+        Returns:
+            Integer result or process exit code.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    
+        Security:
+            Never log keys or passwords; see docs/SECURITY_AUDIT.md.
+    """
     parser = build_derive_parser()
 
     try:
@@ -626,6 +843,17 @@ def run_derive(argv: list[str]) -> int:
 
 
 def run(argv: list[str] | None = None) -> int:
+    """Dispatch to the selected CryptoCore CLI operation.
+    
+        Args:
+            argv: Argument list excluding the executable name.
+    
+        Returns:
+            Integer result or process exit code.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     arguments = list(
         sys.argv[1:] if argv is None else argv
     )
@@ -716,6 +944,14 @@ def run(argv: list[str] | None = None) -> int:
 
 
 def main() -> int:
+    """Console script entry point returning an integer process status.
+    
+        Returns:
+            Integer result or process exit code.
+    
+        Raises:
+            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """
     return run()
 
 

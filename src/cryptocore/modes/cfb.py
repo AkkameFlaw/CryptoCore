@@ -1,3 +1,5 @@
+"""AES-128 CFB-128 mode without padding."""
+
 from Crypto.Cipher import AES
 
 from .common import (
@@ -13,6 +15,19 @@ def encrypt_cfb(
     key: bytes,
     iv: bytes,
 ) -> bytes:
+    """Encrypt any-length bytes with AES-128 CFB-128.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+            iv: 16-byte initialization vector or CTR initial counter.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ValueError or PaddingError on malformed keys, IVs or padding.
+    """
     validate_key(key)
     validate_iv(iv)
 
@@ -57,6 +72,19 @@ def decrypt_cfb(
     key: bytes,
     iv: bytes,
 ) -> bytes:
+    """Decrypt any-length bytes with AES-128 CFB-128.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            key: Secret key (16 bytes for AES-128; arbitrary bytes for HMAC).
+            iv: 16-byte initialization vector or CTR initial counter.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            ValueError or PaddingError on malformed keys, IVs or padding.
+    """
     validate_key(key)
     validate_iv(iv)
 

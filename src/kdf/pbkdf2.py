@@ -1,3 +1,5 @@
+"""Pure-Python PBKDF2-HMAC-SHA256 implemented using the local HMAC class."""
+
 from mac import HMAC
 
 
@@ -9,6 +11,17 @@ MAX_DERIVED_KEY_LENGTH = 1 << 16
 def _normalize_password(
     password: bytes | bytearray | str,
 ) -> bytes:
+    """Convert str passwords to UTF-8 bytes and validate bytes-like inputs.
+    
+        Args:
+            password: Password bytes or a UTF-8 encoded str.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError or ValueError on invalid types, counts and key length.
+    """
     if isinstance(password, str):
         return password.encode("utf-8")
 
@@ -19,6 +32,18 @@ def _normalize_password(
 
 
 def _prf(template: HMAC, message: bytes) -> bytes:
+    """Evaluate one HMAC-SHA256 PRF using an independent copy of the keyed context.
+    
+        Args:
+            template: Parameter used by this operation; see docs/API.md.
+            message: Parameter used by this operation; see docs/API.md.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError or ValueError on invalid types, counts and key length.
+    """
     instance = template.copy()
     instance.update(message)
     return instance.digest()
@@ -30,6 +55,23 @@ def pbkdf2_hmac_sha256(
     iterations: int,
     dklen: int,
 ) -> bytes:
+    """Derive exactly dklen key bytes using PBKDF2-HMAC-SHA256; maximum 65536 bytes.
+    
+        Args:
+            password: Password bytes or a UTF-8 encoded str.
+            salt: Salt bytes; CLI accepts HEX and creates 16 random bytes by default.
+            iterations: Positive PBKDF2 iteration count (integer).
+            dklen: Requested output size in bytes (1..65536 for PBKDF2).
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError or ValueError on invalid types, counts and key length.
+    
+        Security:
+            Never log keys or passwords; see docs/SECURITY_AUDIT.md.
+    """
     password_bytes = _normalize_password(password)
 
     if not isinstance(salt, (bytes, bytearray, memoryview)):

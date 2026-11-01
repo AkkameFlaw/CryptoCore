@@ -1,3 +1,5 @@
+"""Authenticated encryption with AES-CTR and HMAC-SHA256 (EtM)."""
+
 import secrets
 
 from cryptocore.csprng import generate_random_bytes
@@ -12,10 +14,27 @@ DOMAIN = b"CryptoCore:EtM:v1"
 
 
 class EtMAuthenticationError(ValueError):
+    """Raised when EtM authentication or input framing fails.
+
+    Notes:
+        Consult docs/API.md for construction, safety, and examples.
+    """
     pass
 
 
 def _ensure_bytes(value, name: str) -> bytes:
+    """Reject inputs not representable as bytes.
+    
+        Args:
+            value: Input word or field element.
+            name: Parameter used by this operation; see docs/API.md.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError, ValueError or EtMAuthenticationError.
+    """
     if not isinstance(
         value,
         (bytes, bytearray, memoryview),
@@ -26,6 +45,18 @@ def _ensure_bytes(value, name: str) -> bytes:
 
 
 def _derive_key(master_key: bytes, label: bytes) -> bytes:
+    """Derive an internal EtM key from the master secret and context.
+    
+        Args:
+            master_key: Secret master key (16 bytes for EtM; arbitrary bytes for the key hierarchy).
+            label: Parameter used by this operation; see docs/API.md.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError, ValueError or EtMAuthenticationError.
+    """
     mac = HMAC(master_key)
     mac.update(DOMAIN)
     mac.update(b":")
@@ -34,10 +65,26 @@ def _derive_key(master_key: bytes, label: bytes) -> bytes:
 
 
 class EncryptThenMAC:
+    """AES-128 CTR plus HMAC-SHA256 with independently derived internal keys.
+
+    Notes:
+        Consult docs/API.md for construction, safety, and examples.
+    """
     nonce_size = NONCE_SIZE
     tag_size = TAG_SIZE
 
     def __init__(self, master_key: bytes) -> None:
+        """Construct the object and validate initialization parameters.
+    
+        Args:
+            master_key: Secret master key (16 bytes for EtM; arbitrary bytes for the key hierarchy).
+    
+        Returns:
+            Nothing; raises on validation failure.
+    
+        Raises:
+            TypeError, ValueError or EtMAuthenticationError.
+    """
         key = _ensure_bytes(master_key, "master_key")
 
         if len(key) != MASTER_KEY_SIZE:
@@ -60,6 +107,18 @@ class EncryptThenMAC:
         authenticated_ciphertext: bytes,
         aad: bytes,
     ) -> bytes:
+        """Authenticate the EtM domain, nonce, ciphertext, AAD and lengths.
+    
+        Args:
+            authenticated_ciphertext: Parameter used by this operation; see docs/API.md.
+            aad: Authenticated additional bytes, or a binary stream for GCM.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError, ValueError or EtMAuthenticationError.
+    """
         mac = HMAC(self._authentication_key)
 
         mac.update(DOMAIN)
@@ -78,6 +137,22 @@ class EncryptThenMAC:
         aad: bytes = b"",
         nonce: bytes | None = None,
     ) -> bytes:
+        """Encrypt input; return nonce || ciphertext || authentication tag.
+    
+        Args:
+            plaintext: Plaintext bytes to encrypt.
+            aad: Authenticated additional bytes, or a binary stream for GCM.
+            nonce: Nonce: 12 bytes for CLI GCM; 16 bytes for EtM.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError, ValueError or EtMAuthenticationError.
+    
+        Security:
+            Never log keys or passwords; see docs/SECURITY_AUDIT.md.
+    """
         if self._encryption_used:
             raise ValueError(
                 "encryption has already been performed "
@@ -119,6 +194,21 @@ class EncryptThenMAC:
         data: bytes,
         aad: bytes = b"",
     ) -> bytes:
+        """Verify authentication and return the original plaintext bytes.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+            aad: Authenticated additional bytes, or a binary stream for GCM.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError, ValueError or EtMAuthenticationError.
+    
+        Security:
+            Never log keys or passwords; see docs/SECURITY_AUDIT.md.
+    """
         data = _ensure_bytes(data, "data")
         aad = _ensure_bytes(aad, "aad")
 

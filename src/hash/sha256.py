@@ -1,3 +1,5 @@
+"""Pure-Python streaming SHA-256 (FIPS 180-4)."""
+
 from __future__ import annotations
 
 
@@ -38,6 +40,18 @@ def _rotate_right(
     value: int,
     amount: int,
 ) -> int:
+    """Rotate a 32-bit word right.
+    
+        Args:
+            value: Input word or field element.
+            amount: Number of bits to rotate.
+    
+        Returns:
+            Integer result or process exit code.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
     return (
         (value >> amount)
         | (value << (32 - amount))
@@ -45,12 +59,25 @@ def _rotate_right(
 
 
 class SHA256:
+    """Incremental SHA-256 hash context.
+
+    Notes:
+        Consult docs/API.md for construction, safety, and examples.
+    """
     block_size = 64
     digest_size = 32
 
     def __init__(
         self,
     ) -> None:
+        """Construct the object and validate initialization parameters.
+    
+        Returns:
+            Nothing; raises on validation failure.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         self._h = list(
             INITIAL_HASH
         )
@@ -62,6 +89,14 @@ class SHA256:
     def copy(
             self,
     ) -> "SHA256":
+        """Return an independent copy of the current hashing or MAC state.
+    
+        Returns:
+            A value of type 'SHA256'; see docs/API.md.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         clone = self.__class__()
 
         clone._h = (
@@ -84,6 +119,17 @@ class SHA256:
         | bytearray
         | memoryview,
     ) -> SHA256:
+        """Absorb additional binary input and return the updated object.
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+    
+        Returns:
+            A value of type SHA256; see docs/API.md.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         if not isinstance(
             data,
             (
@@ -132,6 +178,17 @@ class SHA256:
         self,
         block: bytes,
     ) -> None:
+        """Perform the  process block operation in hash.sha256.
+    
+        Args:
+            block: Parameter used by this operation; see docs/API.md.
+    
+        Returns:
+            Nothing; raises on validation failure.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         if (
             len(block)
             != self.block_size
@@ -319,6 +376,14 @@ class SHA256:
     def _finalize(
         self,
     ) -> None:
+        """Perform the  finalize operation in hash.sha256.
+    
+        Returns:
+            Nothing; raises on validation failure.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         bit_length = (
             self._message_length * 8
         ) & 0xFFFFFFFFFFFFFFFF
@@ -361,6 +426,14 @@ class SHA256:
     def digest(
         self,
     ) -> bytes:
+        """Return final digest bytes without modifying the original state.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         clone = self.copy()
 
         clone._finalize()
@@ -376,6 +449,14 @@ class SHA256:
     def hexdigest(
         self,
     ) -> str:
+        """Return the digest as a lowercase HEX string.
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         return (
             self.digest().hex()
         )
@@ -387,6 +468,17 @@ class SHA256:
         | bytearray
         | memoryview,
     ) -> str:
+        """Compute the digest of supplied data (class convenience method).
+    
+        Args:
+            data: Binary input; for ciphertext, the format depends on the selected mode.
+    
+        Returns:
+            Text output.
+    
+        Raises:
+            TypeError on non-bytes-like update data.
+    """
         instance = cls()
 
         instance.update(

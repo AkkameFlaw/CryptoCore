@@ -1,3 +1,5 @@
+"""Public exports of the cryptocore.__main__ package."""
+
 from .cli import main
 
 

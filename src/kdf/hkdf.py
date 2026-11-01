@@ -1,3 +1,5 @@
+"""Deterministic context-separated HMAC-based key hierarchy (not RFC 5869 HKDF)."""
+
 from mac import HMAC
 
 
@@ -10,6 +12,22 @@ def derive_key(
     context: str,
     length: int = 32,
 ) -> bytes:
+    """Derive a context-separated key with HMAC(master_key, context || BE32(counter)).
+    
+        Args:
+            master_key: Secret master key (16 bytes for EtM; arbitrary bytes for the key hierarchy).
+            context: Unique UTF-8 string identifying the intended key purpose.
+            length: Requested output size in bytes; see the function for limits.
+    
+        Returns:
+            Binary result.
+    
+        Raises:
+            TypeError or ValueError on invalid context, master key or length.
+    
+        Security:
+            Never log keys or passwords; see docs/SECURITY_AUDIT.md.
+    """
     if not isinstance(
         master_key,
         (bytes, bytearray, memoryview),
