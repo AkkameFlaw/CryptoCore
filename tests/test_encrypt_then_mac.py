@@ -70,11 +70,13 @@ def test_etm_independent_mac_reference():
         nonce=NONCE,
     )
 
-    encryption_key = hmac.new(
+    encryption_key_material = hmac.new(
         MASTER_KEY,
         b"CryptoCore:EtM:v1:encryption",
         hashlib.sha256,
-    ).digest()[:16]
+    ).digest()
+
+    encryption_key = encryption_key_material[:16]
 
     authentication_key = hmac.new(
         MASTER_KEY,
@@ -105,7 +107,7 @@ def test_etm_independent_mac_reference():
     ).digest()
 
     assert encrypted == authenticated_ciphertext + expected_tag
-    assert encryption_key != authentication_key[:16]
+    assert encryption_key_material != authentication_key
 
 
 def test_etm_wrong_aad():

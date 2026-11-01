@@ -202,3 +202,15 @@ def test_pbkdf2_invalid_salt():
             2,
             32,
         )
+
+def test_pbkdf2_rejects_excessive_length():
+    with pytest.raises(
+        ValueError,
+        match="65536",
+    ):
+        pbkdf2_hmac_sha256(
+            b"password",
+            b"salt",
+            1,
+            65537,
+        )

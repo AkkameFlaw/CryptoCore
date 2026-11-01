@@ -24,7 +24,7 @@ def test_derive_known_answer(capsys):
 
     assert result == 0
     assert capsys.readouterr().out == (
-        f"{expected.hex()}  73616c74\n"
+        f"{expected.hex()} 73616c74\n"
     )
 
 
@@ -48,7 +48,7 @@ def test_derive_binary_output(tmp_path: Path, capsys):
     assert output.read_bytes() == expected
     assert output.stat().st_size == 16
     assert capsys.readouterr().out == (
-        f"{expected.hex()}  73616c74\n"
+        f"{expected.hex()} 73616c74\n"
     )
 
 
@@ -204,3 +204,93 @@ def test_derive_parser_defaults():
     assert args.algorithm == "pbkdf2"
     assert args.iterations == 100_000
     assert args.length == 32
+
+def test_derive_length_upper_bound(capsys):
+    result = run([
+        "derive",
+        "--password", "password",
+        "--salt", "73616c74",
+        "--iterations", "1",
+        "--length", "65537",
+    ])
+
+    captured = capsys.readouterr()
+
+    assert result == 2
+    assert "65536" in captured.err
+
+
+def test_derive_zeroizes_password_and_key(
+    monkeypatch,
+    tmp_path: Path,
+):
+    captured = {}
+    original_write_bytes = Path.write_bytes
+
+    def fake_pbkdf2(password, salt, iterations, dklen):
+        captured["password"] = password
+        return b"\xaa" * dklen
+
+    def capture_write_bytes(path, data):
+        captured["key"] = data
+        return original_write_bytes(path, data)
+
+    monkeypatch.setattr(
+        "cryptocore.cli.pbkdf2_hmac_sha256",
+        fake_pbkdf2,
+    )
+
+    monkeypatch.setattr(
+        Path,
+        "write_bytes",
+        capture_write_bytes,
+    )
+
+    output = tmp_path / "key.bin"
+
+    result = run([
+        "derive",
+        "--password", "SecretPassword123!",
+        "--salt", "73616c74",
+        "--iterations", "1",
+        "--length", "16",
+        "--output", str(output),
+    ])
+
+    assert result == 0
+    assert output.read_bytes() == b"\xaa" * 16
+
+    assert isinstance(captured["password"], bytearray)
+    assert isinstance(captured["key"], bytearray)
+
+    assert captured["password"] == b"\x00" * 18
+    assert captured["key"] == b"\x00" * 16
+
+
+def test_password_not_printed_on_error(
+    monkeypatch,
+    capsys,
+):
+    secret = "SecretPassword123!"
+
+    def fake_pbkdf2(password, salt, iterations, dklen):
+        raise ValueError("derivation failed")
+
+    monkeypatch.setattr(
+        "cryptocore.cli.pbkdf2_hmac_sha256",
+        fake_pbkdf2,
+    )
+
+    result = run([
+        "derive",
+        "--password", secret,
+        "--salt", "73616c74",
+        "--iterations", "1",
+        "--length", "16",
+    ])
+
+    captured = capsys.readouterr()
+
+    assert result == 2
+    assert secret not in captured.out
+    assert secret not in captured.err

@@ -10,6 +10,7 @@ from typing import BinaryIO
 
 from aead import EncryptThenMAC, EtMAuthenticationError
 from kdf import pbkdf2_hmac_sha256
+from kdf.pbkdf2 import MAX_DERIVED_KEY_LENGTH
 from modes import AuthenticationError, GCM
 
 from .csprng import generate_random_bytes
@@ -239,9 +240,12 @@ def resolve_salt(salt_text: str | None) -> bytes:
     return bytes.fromhex(salt_text)
 
 
-def resolve_password(args: argparse.Namespace) -> bytes:
+def resolve_password(args: argparse.Namespace) -> bytearray:
+    # Пароль не записывается в журналы и не выводится в stdout/stderr.
     if args.password is not None:
-        return args.password.encode("utf-8")
+        password = bytearray(args.password.encode("utf-8"))
+        args.password = None
+        return password
 
     if args.password_env is not None:
         value = os.environ.get(args.password_env)
@@ -251,9 +255,15 @@ def resolve_password(args: argparse.Namespace) -> bytes:
                 f"environment variable not found: {args.password_env}"
             )
 
-        return value.encode("utf-8")
+        password = bytearray(value.encode("utf-8"))
+        del value
+        return password
 
-    return Path(args.password_file).read_bytes()
+    password = bytearray(
+        Path(args.password_file).read_bytes()
+    )
+
+    return password
 
 
 def is_weak_key(key: bytes) -> bool:
@@ -550,6 +560,9 @@ def run_derive(argv: list[str]) -> int:
     except SystemExit as exc:
         return int(exc.code)
 
+    password = None
+    key = None
+
     try:
         if args.iterations < 1:
             raise ArgumentError(
@@ -561,20 +574,32 @@ def run_derive(argv: list[str]) -> int:
                 "--length must be positive"
             )
 
+        if args.length > MAX_DERIVED_KEY_LENGTH:
+            raise ArgumentError(
+                f"--length must not exceed "
+                f"{MAX_DERIVED_KEY_LENGTH} bytes"
+            )
+
         salt = resolve_salt(args.salt)
         password = resolve_password(args)
 
-        key = pbkdf2_hmac_sha256(
+        derived = pbkdf2_hmac_sha256(
             password,
             salt,
             args.iterations,
             args.length,
         )
 
+        try:
+            key = bytearray(derived)
+        finally:
+            del derived
+
         if args.output_file is not None:
             Path(args.output_file).write_bytes(key)
 
-        print(f"{key.hex()}  {salt.hex()}")
+        print(f"{key.hex()} {salt.hex()}")
+
         return 0
 
     except (
@@ -588,6 +613,16 @@ def run_derive(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 2
+
+    finally:
+        if password is not None:
+            password[:] = b"\x00" * len(password)
+
+        if key is not None:
+            key[:] = b"\x00" * len(key)
+
+        del password
+        del key
 
 
 def run(argv: list[str] | None = None) -> int:

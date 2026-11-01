@@ -3,10 +3,11 @@ from mac import HMAC
 
 HASH_SIZE = 32
 MAX_BLOCKS = (1 << 32) - 1
+MAX_DERIVED_KEY_LENGTH = 1 << 16
 
 
 def _normalize_password(
-    password: bytes | str,
+    password: bytes | bytearray | str,
 ) -> bytes:
     if isinstance(password, str):
         return password.encode("utf-8")
@@ -24,7 +25,7 @@ def _prf(template: HMAC, message: bytes) -> bytes:
 
 
 def pbkdf2_hmac_sha256(
-    password: bytes | str,
+    password: bytes | bytearray | str,
     salt: bytes,
     iterations: int,
     dklen: int,
@@ -47,6 +48,11 @@ def pbkdf2_hmac_sha256(
 
     if dklen < 1:
         raise ValueError("dklen must be positive")
+
+    if dklen > MAX_DERIVED_KEY_LENGTH:
+        raise ValueError(
+            f"dklen must not exceed {MAX_DERIVED_KEY_LENGTH} bytes"
+        )
 
     blocks_needed = (dklen + HASH_SIZE - 1) // HASH_SIZE
 
