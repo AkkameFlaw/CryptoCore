@@ -4,7 +4,7 @@
 
 Разработка выполнялась последовательно в рамках восьми спринтов. Каждый новый спринт расширял функциональность проекта с сохранением возможностей предыдущих этапов.
 
-**Текущая версия: `0.8.0`**
+**Текущая версия: `0.8.1` — Sprint 8 с исправлениями безопасности и расширенными тестами.**
 
 ## 1. Возможности проекта
 
@@ -60,6 +60,20 @@ python -m pip install --upgrade pip
 ```powershell
 pip install -e ".[dev]"
 ```
+
+При проблемах с доступом к PyPI и уже установленных зависимостях можно выполнить локальную editable-установку без скачивания зависимостей:
+
+```powershell
+python -m pip install --no-build-isolation --no-deps -e .
+```
+
+Проверка исходной и установленной версий:
+
+```powershell
+python -c "import cryptocore, importlib.metadata; print(cryptocore.__version__); print(importlib.metadata.version('cryptocore'))"
+```
+
+Обе строки должны содержать `0.8.1`.
 
 ### 2.2. Проверка установки
 
@@ -192,7 +206,7 @@ generate_random_bytes(num_bytes)
 cryptocore --algorithm aes --mode ctr --encrypt --input plaintext.txt --output ciphertext.bin
 ```
 
-Программа выводит полученный ключ в HEX-представлении.
+Программа **не выводит секретный ключ в stdout по умолчанию**. Для автоматической генерации она создаёт отдельный файл `<output>.key` с 16 бинарными байтами. Используйте `--key-file` для расшифрования; `--show-key` специально включает опасный вывод HEX-ключа.
 
 Для последующего расшифрования необходимо сохранить этот ключ.
 
@@ -434,7 +448,7 @@ Nonce (12 байт) || Ciphertext || Tag (16 байт)
 
 При обычном шифровании nonce генерируется случайно.
 
-Повторное использование одного и того же nonce с одним ключом GCM недопустимо.
+Повторное использование одного и того же nonce с одним ключом GCM недопустимо. Файловый CLI версии 0.8.1 регистрирует пары ключ+nonce/IV в локальной SQLite-базе и отклоняет повтор; это не гарантирует уникальности между независимыми компьютерами.
 
 ### 8.2. Шифрование с AAD
 
@@ -466,7 +480,7 @@ cryptocore --algorithm aes --mode gcm --decrypt --key 00112233445566778899aabbcc
 
 ### 8.3. AAD из файла
 
-Для GCM предусмотрен параметр `--aad-file`, позволяющий передавать дополнительные аутентифицируемые данные из бинарного файла.
+Для GCM и EtM предусмотрен параметр `--aad-file`, позволяющий передавать дополнительные аутентифицируемые данные из бинарного файла.
 
 ```powershell
 cryptocore --algorithm aes --mode gcm --encrypt --key 00112233445566778899aabbccddeeff --input plaintext.txt --output ciphertext.bin --aad-file metadata.bin
@@ -490,7 +504,7 @@ python scripts\test_large_aad.py --size-mb 16
 
 Отдельная проверка AAD, превышающего физически доступную оперативную память, не проводилась.
 
-Также следует учитывать, что текущий CLI загружает основной шифруемый файл целиком: потоковая обработка Sprint 6 относится именно к AAD.
+В версии 0.8.1 основной файловый CLI работает потоково (блоки до 64 КиБ) для всех режимов. В библиотечных функциях, принимающих `bytes`, весь вход по-прежнему передаётся в памяти.
 
 ### 8.4. Encrypt-then-MAC
 
@@ -608,7 +622,7 @@ cryptocore derive
 Общий формат:
 
 ```text
-cryptocore derive --algorithm pbkdf2 --password PASSWORD [--salt SALT] [--iterations COUNT] [--length LENGTH] [--output FILE]
+cryptocore derive --password-file PASSWORD_FILE [--salt SALT] [--iterations COUNT] [--length LENGTH] --output FILE
 ```
 
 Поддерживаемые параметры:
@@ -616,7 +630,11 @@ cryptocore derive --algorithm pbkdf2 --password PASSWORD [--salt SALT] [--iterat
 | Аргумент | Назначение | Значение по умолчанию |
 |---|---|---|
 | `--algorithm` | Алгоритм KDF | `pbkdf2` |
-| `--password` | Пароль как строка | Не задан |
+| `--password` | Небезопасная передача через argv; только с `--allow-insecure-password-argv` | Не задан |
+| `--password-prompt` | Ввод через `getpass` без эха в терминале | Не задан |
+| `--allow-insecure-password-argv` | Явное подтверждение риска передачи пароля через argv | Выключен |
+| `--show-key` | Явное разрешение печати производного ключа | Выключен |
+| `--allow-slow-kdf` | Допускает до 1 000 000 итераций вместо 100 000 | Выключен |
 | `--password-env` | Имя переменной окружения с паролем | Не задан |
 | `--password-file` | Путь к файлу с паролем | Не задан |
 | `--salt` | Соль в HEX | Генерируется случайно |
@@ -624,7 +642,7 @@ cryptocore derive --algorithm pbkdf2 --password PASSWORD [--salt SALT] [--iterat
 | `--length` | Длина ключа в байтах | `32` |
 | `--output` | Путь к бинарному файлу ключа | Не задан |
 
-Необходимо указать ровно один источник пароля: `--password`, `--password-env` или `--password-file`.
+Необходимо выбрать один источник: `--password-env`, `--password-file`, `--password-prompt` или небезопасный `--password` с явным флагом `--allow-insecure-password-argv`. По умолчанию ключ записывается только в файл, если задан `--output`.
 
 При отсутствии `--salt` программа генерирует случайные 16 байт.
 
@@ -636,14 +654,14 @@ cryptocore derive --algorithm pbkdf2 --password PASSWORD [--salt SALT] [--iterat
 KEY_HEX SALT_HEX
 ```
 
-**Между `KEY_HEX` и `SALT_HEX` используется ровно один пробел.**
+**Между `KEY_HEX` и `SALT_HEX` используется ровно один пробел, но эта строка выводится только при явно установленном `--show-key`.**
 
 Это единое соглашение для команды `derive`.
 
 Пример:
 
 ```powershell
-cryptocore derive --algorithm pbkdf2 --password "password" --salt 73616c74 --iterations 1 --length 32
+cryptocore derive --algorithm pbkdf2 --password "password" --allow-insecure-password-argv --show-key --salt 73616c74 --iterations 1 --length 32
 ```
 
 Ожидаемый результат:
@@ -667,7 +685,7 @@ Salt — дополнительное значение, которое испо�
 Пример:
 
 ```powershell
-cryptocore derive --password "password" --iterations 100000 --length 32
+cryptocore derive --password-prompt --iterations 100000 --length 32 --output derived.key
 ```
 
 При двух независимых запусках с автоматически генерируемой солью результаты обычно различаются.
@@ -691,7 +709,7 @@ Salt не является секретом, но должен быть сохр
 Пример:
 
 ```powershell
-cryptocore derive --password "password" --salt 73616c74 --iterations 2 --length 32 --output sprint7.key
+cryptocore derive --password "password" --allow-insecure-password-argv --salt 73616c74 --iterations 2 --length 32 --output sprint7.key
 ```
 
 В файл записываются **сырые бинарные байты**, а не их шестнадцатеричное представление.
@@ -712,7 +730,7 @@ cryptocore derive --password "password" --salt 73616c74 --iterations 2 --length 
 
 Salt не добавляется автоматически в бинарный файл ключа.
 
-Даже при использовании `--output` команда выводит HEX-ключ и salt в stdout в соответствии с CLI-3. Необходимо учитывать, что такой вывод содержит секретный ключ и не должен попадать в публичные журналы.
+При `--output` по умолчанию печатается только salt (не секрет). Для демонстрации прежнего формата `KEY_HEX SALT_HEX` необходимо отдельно задать `--show-key`; это небезопасно для публичных журналов.
 
 ### 9.6. Пароль из переменной окружения
 
@@ -729,7 +747,7 @@ $env:CRYPTOCORE_PASSWORD = "TestPassword123!"
 Выполнение:
 
 ```powershell
-cryptocore derive --password-env CRYPTOCORE_PASSWORD --salt 00112233445566778899aabbccddeeff --iterations 100000 --length 32
+cryptocore derive --password-env CRYPTOCORE_PASSWORD --salt 00112233445566778899aabbccddeeff --iterations 100000 --length 32 --output derived.key
 ```
 
 Удаление переменной:
@@ -751,7 +769,7 @@ Remove-Item Env:\CRYPTOCORE_PASSWORD
 Например:
 
 ```powershell
-cryptocore derive --password-file password.bin --salt 00112233445566778899aabbccddeeff --iterations 100000 --length 32
+cryptocore derive --password-file password.bin --salt 00112233445566778899aabbccddeeff --iterations 100000 --length 32 --output derived.key
 ```
 
 В режиме `--password-file` пароль читается как последовательность бинарных байтов.
@@ -777,7 +795,7 @@ cryptocore derive --password-file password.bin --salt 00112233445566778899aabbcc
 Пример неверного вызова:
 
 ```powershell
-cryptocore derive --password "test" --salt 73616c74 --iterations 1 --length 65537
+cryptocore derive --password-file password.bin --salt 73616c74 --iterations 1 --length 65537 --output derived.key
 ```
 
 Ожидается ошибка:
@@ -1063,183 +1081,226 @@ Python: 3.14.0
 
 ## 10. Тестирование проекта
 
-Для автоматического тестирования используется pytest.
+Проект использует `pytest`, `pytest-cov` и отдельный запускатель `tests/run_tests.py`. Утилита оценивает покрытие **строк и ветвей**; это не является формальным доказательством покрытия всех возможных путей исполнения.
 
-### 10.1. Полный запуск
+### 10.1. Итоговый результат CryptoCore 0.8.1
+
+На Windows 10, Python 3.14.0, pytest 8.4.2 и pytest-cov 7.1.0 выполнена команда:
+
+```powershell
+python tests\run_tests.py --enforce-coverage
+```
+
+**Подтверждённый результат последнего запуска:**
+
+```text
+Required test coverage of 90.01% reached. Total coverage: 94.69%
+409 passed in 139.83s (0:02:19)
+```
+
+| Показатель | Результат |
+|---|---:|
+| Версия | 0.8.1 |
+| Все автоматические тесты | **409 passed** |
+| Общее покрытие строк и ветвей | **94,69%** |
+| Требуемый порог | Более 90% |
+| Покрытие `cryptocore.cli` | 98% |
+| Покрытие `cryptocore.file_io` | 100% |
+| Покрытие `cryptocore.streaming` | 93% |
+| Покрытие `cryptocore.nonce_registry` | 84% |
+| Покрытие `cryptocore.modes.ecb` | 79% |
+| OpenSSL: ECB, CBC, CFB, OFB, CTR | 5/5 passed |
+
+Следует различать общий процент 94,69% и покрытие отдельных модулей: не каждый файл достиг 90%. Полный отчёт генерируется в `htmlcov/index.html`, а JSON — в `coverage.json` (оба файла локальные и игнорируются Git).
+
+### 10.2. Основные команды
+
+Все тесты:
 
 ```powershell
 pytest -q
 ```
 
-Результат пользовательского запуска полного набора Sprint 8:
-
-```text
-323 passed in 120.89s (91.63% branch-aware coverage)
-```
-
-В рамках Sprint 7 были добавлены проверки, включая:
-
-- ограничение длины производного ключа;
-- очистку изменяемых буферов пароля и ключа;
-- отсутствие пароля в выводе при ошибках;
-- единый формат вывода `KEY_HEX SALT_HEX`;
-- сравнение полного ключевого материала в тесте EtM.
-
-Перед финальной сдачей обновлённой сборки Sprint 8 рекомендуется повторно выполнить `python tests/run_tests.py --enforce-coverage`.
-
-### 10.2. Тестирование Sprint 7
+Тесты с отчётом о покрытии:
 
 ```powershell
-pytest tests/test_pbkdf2_vectors.py tests/test_key_hierarchy.py tests/test_derive_cli.py -v
+python tests\run_tests.py --coverage
 ```
 
-Ранее этот набор успешно проходил:
-
-```text
-53 passed in 3.83s
-```
-
-Новые тесты были дополнены в Sprint 8; полный набор включал 323 успешных теста.
-
-### 10.3. Проверка EtM
+Строгая проверка порога:
 
 ```powershell
-pytest tests/test_encrypt_then_mac.py -v
+python tests\run_tests.py --enforce-coverage
 ```
 
-### 10.4. Длительные проверки
+Дополнительные тесты безопасности 0.8.1:
 
-Измерения производительности PBKDF2 выполняются отдельно и не включаются в стандартный `pytest -q`.
+```powershell
+pytest tests\integration\test_security_hardening.py -v
+pytest tests\unit\test_security_coverage_gaps.py -v
+```
 
-Для полного повторения измерений необходимо запускать `scripts/benchmark_pbkdf2.py` с числом итераций 10000, 100000 и 1000000.
+Последние два набора проходили отдельно: соответственно **14** и **67** тестов. Они входят и в общий набор из 409 тестов; складывать результаты повторных запусков не нужно.
 
-Такой подход обеспечивает воспроизводимость эксперимента, не замедляя обычную проверку корректности проекта.
+Тесты AES с внешним OpenSSL:
+
+```powershell
+pytest tests\integration\test_openssl_compat.py -v
+```
+
+Аудит публичных определений:
+
+```powershell
+python scripts\audit_public_api.py
+```
+
+Последний отчёт: **84 определения, 0 отсутствующих docstrings**. Список определений формируется в `docs/API_INVENTORY.md`.
+
+### 10.3. Проверка основных сценариев
+
+Интеграционные тесты в `tests/integration/` выполняют настоящий CLI, включая шифрование и расшифрование во всех семи режимах, хеширование, HMAC, PBKDF2 и обнаружение повреждения аутентифицируемых данных. Тесты из `tests/vectors/` включают векторы NIST для ECB, CBC, CFB, OFB и CTR; тесты остальных криптографических примитивов сохранены из предыдущих спринтов.
+
+Для демонстрации API:
+
+```powershell
+python docs\examples\demo_api.py
+```
+
+### 10.4. Производительность и большие файлы
+
+Сравнительные измерения намеренно не включены в быстрые автоматические проверки: их результаты зависят от оборудования и могут требовать длительного выполнения.
+
+```powershell
+python scripts\benchmark_aes.py --size-mb 1
+python scripts\benchmark_pbkdf2.py --iterations 10000
+```
+
+В последнем локальном измерении AES-128 CTR для 1 МиБ получены **1,96 МиБ/с при шифровании** и **2,19 МиБ/с при расшифровании** (успешный round-trip). Реальные результаты PBKDF2 для 10 000, 100 000 и 1 000 000 итераций приведены в разделе 9.13.
+
+Дополнительно существует сценарий потоковой обработки большого файла:
+
+```powershell
+python scripts\verify_large_stream.py --gib 1.05 --yes
+```
+
+**Тест с файлом более 1 ГиБ пока не подтверждён выполненным запуском**. Команда может требовать несколько гигабайт свободного места. Не следует заявлять этот эксперимент выполненным до получения его результата.
 
 ---
 
 ## 11. Структура проекта
 
+Ниже приведена структура сборки 0.8.1 с расширенным покрытием (временные и кешированные файлы не показаны):
+
 ```text
 CryptoCore/
+├── .github/workflows/tests.yml
 ├── .gitignore
 ├── README.md
 ├── pyproject.toml
 ├── requirements.txt
+├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── SECURITY.md
 ├── docs/
+│   ├── API.md
+│   ├── API_INVENTORY.md
+│   ├── USERGUIDE.md
+│   ├── DEVELOPMENT.md
+│   ├── QA_CHECKLIST.md
+│   ├── SECURITY_AUDIT.md
+│   ├── SECURITY_REVIEW_2026.md
 │   ├── vectors.md
+│   ├── nist_final_report.txt
 │   ├── sprint4_performance.md
 │   ├── sprint7_performance.md
-│   └── sprint7_performance.json
+│   ├── sprint7_performance.json
+│   └── examples/
+│       ├── README.md
+│       └── demo_api.py
 ├── scripts/
-│   ├── generate_nist_data.py
-│   ├── test_openssl.ps1
+│   ├── audit_public_api.py
+│   ├── benchmark_aes.py
 │   ├── benchmark_hash.py
 │   ├── benchmark_pbkdf2.py
+│   ├── generate_nist_data.py
+│   ├── test_large_aad.py
 │   ├── test_large_hash.py
 │   ├── test_large_hmac.py
-│   └── test_large_aad.py
+│   ├── test_openssl.ps1
+│   └── verify_large_stream.py
 ├── src/
-│   ├── aead/
+│   ├── cryptocore/
 │   │   ├── __init__.py
-│   │   └── encrypt_then_mac.py
-│   ├── hash/
-│   │   ├── __init__.py
-│   │   ├── sha256.py
-│   │   └── sha3_256.py
-│   ├── kdf/
-│   │   ├── __init__.py
-│   │   ├── pbkdf2.py
-│   │   └── hkdf.py
-│   ├── mac/
-│   │   ├── __init__.py
-│   │   └── hmac.py
-│   ├── modes/
-│   │   ├── __init__.py
-│   │   └── gcm.py
-│   └── cryptocore/
-│       ├── __init__.py
-│       ├── __main__.py
-│       ├── cli.py
-│       ├── csprng.py
-│       ├── digest.py
-│       ├── file_io.py
-│       └── modes/
-│           ├── __init__.py
-│           ├── common.py
-│           ├── ecb.py
-│           ├── cbc.py
-│           ├── cfb.py
-│           ├── ofb.py
-│           └── ctr.py
+│   │   ├── __main__.py
+│   │   ├── cli.py
+│   │   ├── csprng.py
+│   │   ├── digest.py
+│   │   ├── file_io.py
+│   │   ├── nonce_registry.py
+│   │   ├── streaming.py
+│   │   └── modes/
+│   │       ├── __init__.py
+│   │       ├── common.py
+│   │       ├── ecb.py
+│   │       ├── cbc.py
+│   │       ├── cfb.py
+│   │       ├── ofb.py
+│   │       └── ctr.py
+│   ├── hash/ (__init__.py, sha256.py, sha3_256.py)
+│   ├── mac/ (__init__.py, hmac.py)
+│   ├── kdf/ (__init__.py, pbkdf2.py, hkdf.py)
+│   ├── aead/ (__init__.py, encrypt_then_mac.py)
+│   └── modes/ (__init__.py, gcm.py)
 └── tests/
-    ├── test_cli.py
-    ├── test_csprng.py
-    ├── test_digest_cli.py
-    ├── test_ecb.py
-    ├── test_hash_avalanche.py
-    ├── test_hmac_cli.py
-    ├── test_hmac_vectors.py
-    ├── test_modes.py
-    ├── test_sha256.py
-    ├── test_sha3_256.py
-    ├── test_gcm.py
-    ├── test_encrypt_then_mac.py
-    ├── test_aead_cli.py
-    ├── test_gcm_final.py
-    ├── test_gcm_aad_file.py
-    ├── test_pbkdf2_vectors.py
-    ├── test_key_hierarchy.py
-    └── test_derive_cli.py
+    ├── run_tests.py
+    ├── integration/
+    │   ├── test_openssl_compat.py
+    │   ├── test_security_hardening.py
+    │   └── test_sprint8_cli.py
+    ├── unit/
+    │   ├── test_module_entrypoint.py
+    │   ├── test_security_coverage_gaps.py
+    │   └── test_sprint8_kdf_validation.py
+    ├── vectors/
+    │   └── test_nist_aes_modes.py
+    └── test_*.py (существующие тесты Sprint 1–7)
 ```
 
-Структура исходников сохраняет архитектуру семи спринтов; подробная структура Sprint 8 описана в `docs/DEVELOPMENT.md`.
+Отдельные файлы `docs/API.md`, `docs/USERGUIDE.md` и `docs/DEVELOPMENT.md` содержат более полные сведения, чем корневой README. Все исторические тесты Sprint 1–7 сохранены.
 
 ---
 
 ## 12. Чистота репозитория
 
-В репозиторий не должны добавляться виртуальное окружение, кэш Python, временные файлы, реальные пароли и криптографические ключи.
+В GitHub должны находиться исходные файлы, тесты, документация, скрипты воспроизведения, `pyproject.toml`, `requirements.txt` и конфигурация GitHub Actions. Пароли, реальные ключи и временные результаты шифрования публиковать нельзя.
 
-Пример `.gitignore`:
+Рекомендуемые правила `.gitignore` (дополняют существующий файл, не заменяя его):
 
 ```gitignore
 .venv/
+venv/
 .idea/
 __pycache__/
 .pytest_cache/
 *.egg-info/
-
-benchmark_*mb.bin
-large_hash_test.bin
-large_hmac_test.bin
-large_aad.bin
-nist_test_data.bin
-
-sprint4.txt
-sprint4.sha256
-sprint5.txt
-sprint5.hmac
-sprint6.txt
-sprint6_*.bin
-sprint6_*.txt
+build/
+dist/
+.coverage
+.coverage.*
+coverage.json
+htmlcov/
 
 sprint7.key
-openssl_pbkdf2.bin
 password.bin
+*.key
+openssl_pbkdf2.bin
 ```
 
-Временные файлы с реальными ключами или паролями следует хранить вне репозитория.
+`*.key` скрывает бинарные файлы ключей, автоматически создаваемые CLI; если в проекте существует тестовый файл с таким расширением, его добавление в Git должно быть обосновано отдельно. Не добавляйте SQLite-базу реестра nonce в Git и не храните реальные секретные ключи внутри репозитория.
 
-При этом исходные тексты алгоритмов, автоматические тесты и отчёты необходимо сохранять.
+По умолчанию реестр повторного использования nonce хранится в `~/.cryptocore/nonces.sqlite3` (за пределами проекта); переменная `CRYPTOCORE_NONCE_DB` позволяет изменить путь. **Не удаляйте и не откатывайте рабочий реестр**, пока соответствующие ключи используются: это уничтожает историю уже применённых nonce/IV.
 
-К отчётным материалам относятся:
-
-```text
-docs/vectors.md
-docs/sprint4_performance.md
-docs/sprint7_performance.md
-docs/sprint7_performance.json
-```
+Документы `docs/vectors.md`, `docs/sprint4_performance.md`, `docs/sprint7_performance.md`, `docs/sprint7_performance.json` и `docs/SECURITY_REVIEW_2026.md` являются частью отчётных материалов и должны сохраняться в репозитории.
 
 ---
 
@@ -1251,22 +1312,22 @@ CryptoCore является учебной реализацией и имеет 
 
 Обычные AES-режимы ECB, CBC, CFB, OFB и CTR не обеспечивают встроенную проверку подлинности.
 
-В GCM необходимо соблюдать уникальность nonce для каждого ключа.
+В GCM необходимо соблюдать уникальность nonce для каждого ключа. В файловом CLI используется локальный SQLite-реестр использованных сочетаний ключа и nonce/IV. Его нельзя сбрасывать между операциями с тем же ключом; реестр не синхронизируется между компьютерами.
 
-В файловом CLI основное шифруемое содержимое загружается в память, хотя для хеширования и AAD реализована потоковая обработка.
+В файловом CLI версии 0.8.1 основной файл и AAD обрабатываются порциями; отдельные библиотечные функции, принимающие `bytes`, по-прежнему требуют вход целиком.
 
 Очистка секретов через `bytearray` ограничивается изменяемыми буферами и не может гарантировать удаление всех копий данных из памяти интерпретатора Python.
 
-Для PBKDF2 введён верхний предел длины ключа 65 536 байт, но очень большое количество итераций всё равно может приводить к длительным вычислениям.
+Для PBKDF2 введены пределы: ключ до 65 536 байт, число итераций до 100 000 по умолчанию и до 1 000 000 только с `--allow-slow-kdf`; даже 100 000 итераций на чистом Python могут выполняться долго.
 
-При использовании `derive` ключ выводится в stdout в соответствии с техническим заданием, поэтому необходимо избегать случайного сохранения секретного результата в общедоступных журналах.
+При использовании `derive` ключ выводится в stdout **только** при `--show-key`. Без этого флага требуется `--output` и выводится только salt.
 
 CryptoCore не следует применять как основную криптографическую библиотеку в производственных системах без дополнительного анализа, тестирования и аудита безопасности.
 
 ---
 
 
-## Sprint 8 — тестирование, документирование и выпуск
+## 14. Sprint 8 — тестирование, документирование и выпуск
 
 Финальная подготовка проекта включает документацию [API](docs/API.md), [руководство пользователя](docs/USERGUIDE.md), [руководство разработчика](docs/DEVELOPMENT.md), [описание тестовых векторов](docs/vectors.md), [аудит безопасности](docs/SECURITY_AUDIT.md) и [матрицу соответствия](docs/QA_CHECKLIST.md), [CHANGELOG](CHANGELOG.md), [правила участия](CONTRIBUTING.md) и [политику раскрытия уязвимостей](SECURITY.md).
 
@@ -1276,7 +1337,7 @@ CryptoCore не следует применять как основную кри
 python tests\run_tests.py --enforce-coverage
 ```
 
-По отчёту в пользовательской среде: **323 пройденных теста, общее покрытие строк и ветвей 91.63%**. Это не формальное покрытие всех возможных путей. Финальный ZIP содержит дополнительные docstrings и файлы документации; повторите проверку в своей среде перед сдачей.
+В итоговом Windows-прогоне версии 0.8.1 подтверждены **409 пройденных тестов и 94,69% общего покрытия строк и ветвей**. Это не формальное покрытие всех возможных путей выполнения. Отдельные модули могут иметь более низкие показатели; подробности приведены в разделе 10.
 
 Для независимого сравнения классических режимов AES с OpenSSL используются `tests/integration/test_openssl_compat.py` (при доступности OpenSSL). AES-256 и CMAC не реализованы. Отдельные длительные тесты больше 1 ГБ не проводились; для демонстрации используются небольшие тестовые файлы.
 
@@ -1284,7 +1345,7 @@ python tests\run_tests.py --enforce-coverage
 
 ---
 
-## 14. Итоги разработки
+## 15. Итоги разработки
 
 В рамках восьми спринтов подготовлен учебный проект CryptoCore, объединяющий:
 
@@ -1304,6 +1365,27 @@ python tests\run_tests.py --enforce-coverage
 
 По замечаниям преподавателя дополнительно предусмотрены ограничение длины ключа, очистка изменяемых секретных буферов, единый формат CLI, документирование тестовых векторов и отдельного процесса измерения производительности.
 
-**Текущая версия: CryptoCore 0.8.0.**
+**Текущая версия: CryptoCore 0.8.1.**
 
 Проект демонстрирует практические принципы работы криптографических алгоритмов, организации их программной реализации, тестирования и независимой проверки корректности.
+
+## 16. Дополнение к Sprint 8: исправления безопасности v0.8.1
+
+Подробная карта восьми замечаний преподавателя и оставшихся ограничений: [docs/SECURITY_REVIEW_2026.md](docs/SECURITY_REVIEW_2026.md).
+
+- **Повтор nonce/IV:** SQLite-реестр `~/.cryptocore/nonces.sqlite3` атомарно запрещает повторное использование пары ключ+nonce при CLI-шифровании. Для тестов и отдельных установок путь настраивается переменной `CRYPTOCORE_NONCE_DB`. При недоступном реестре шифрование прекращается. Удаление или откат базы, несколько машин с одним ключом не защищаются этой локальной проверкой; следует избегать распределённого повторного использования одного ключа.
+- **AES-ключи:** автоматически сгенерированный ключ записывается в `<output>.key` как 16 бинарных байтов и не печатается без `--show-key`. Для дальнейшего использования: `--key-file FILE`. На Unix файл создаётся с правами `0600`; на Windows защита дополнительно зависит от ACL каталога.
+- **PBKDF2:** `--password` требует `--allow-insecure-password-argv`, для безопасного интерактивного ввода существует `--password-prompt`; ключ не печатается без `--show-key` и должен сохраняться через `--output`. Для более чем 100 000 итераций до 1 000 000 требуется `--allow-slow-kdf`.
+- **Потоковый CLI:** AES-ECB/CBC/CFB/OFB/CTR, GCM и EtM обрабатывают файлы фрагментами до 64 КиБ с атомарной заменой конечного файла. Для GCM используется нативный AES-GCM из PyCryptodome, с проверкой тега до публикации открытого текста. Учебный `modes.GCM` с собственным GHASH остаётся доступным, но не обеспечивает constant-time.
+- **AAD:** `--aad-file` поддерживается для GCM и EtM, проверка идёт по файлу частями.
+- **Zeroize:** очищаются управляемые изменяемые буферы; полной гарантии удаления `str`, `bytes` и копий на уровне интерпретатора Python нет.
+
+Пример без секретов в аргументах и stdout:
+
+```powershell
+cryptocore --algorithm aes --mode gcm --encrypt --input plain.bin --output encrypted.gcm
+cryptocore --algorithm aes --mode gcm --decrypt --key-file encrypted.gcm.key --input encrypted.gcm --output restored.bin
+cryptocore derive --password-prompt --iterations 100000 --output derived.key
+```
+
+Обычные `--key HEX` и `--show-key` предусмотрены для совместимости и образовательных демонстраций: их не рекомендуется применять с реальными секретами.

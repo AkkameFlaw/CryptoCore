@@ -6,6 +6,7 @@ from mac import HMAC
 HASH_SIZE = 32
 MAX_BLOCKS = (1 << 32) - 1
 MAX_DERIVED_KEY_LENGTH = 1 << 16
+MAX_ITERATIONS = 1_000_000
 
 
 def _normalize_password(
@@ -84,6 +85,8 @@ def pbkdf2_hmac_sha256(
 
     if iterations < 1:
         raise ValueError("iterations must be at least 1")
+    if iterations > MAX_ITERATIONS:
+        raise ValueError(f"iterations must not exceed {MAX_ITERATIONS}")
 
     if isinstance(dklen, bool) or not isinstance(dklen, int):
         raise TypeError("dklen must be an integer")

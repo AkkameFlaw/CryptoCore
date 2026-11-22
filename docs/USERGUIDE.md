@@ -1,6 +1,6 @@
 # CryptoCore — руководство пользователя
 
-Документ для CryptoCore 0.8.0. Проект является **учебным**. Для защиты реальных секретов не используйте его без независимого аудита.
+Документ для CryptoCore 0.8.1. Проект является **учебным**. Для защиты реальных секретов не используйте его без независимого аудита.
 
 ## Установка
 
@@ -56,7 +56,7 @@ cryptocore --algorithm aes --mode gcm --encrypt --key 00112233445566778899aabbcc
 cryptocore --algorithm aes --mode gcm --decrypt --key 00112233445566778899aabbccddeeff --input demo.gcm --output restored.txt --aad aabbcc
 ```
 
-Для больших AAD можно использовать `--aad-file metadata.bin` при шифровании и расшифровании GCM. Одновременно `--aad` и `--aad-file` указывать нельзя. При неверном AAD или изменении шифртекста ключ не будет расшифрован, выходной файл не перезаписывается. Никогда не повторяйте GCM nonce с тем же ключом.
+Для больших AAD можно использовать `--aad-file metadata.bin` при шифровании и расшифровании GCM **и EtM**. Одновременно `--aad` и `--aad-file` указывать нельзя. При неверном AAD или изменении шифртекста ключ не будет расшифрован, выходной файл не перезаписывается. Никогда не повторяйте GCM nonce с тем же ключом.
 
 ## Encrypt-then-MAC
 
@@ -87,10 +87,10 @@ cryptocore dgst --algorithm sha256 --hmac --key 00112233445566778899aabbccddeeff
 ## PBKDF2 derive
 
 ```powershell
-cryptocore derive --password "password" --salt 73616c74 --iterations 2 --length 32 --output demo.key
+cryptocore derive --password-prompt --salt 73616c74 --iterations 2 --length 32 --output demo.key
 ```
 
-CLI выводит `KEY_HEX SALT_HEX` **с одним пробелом**; файл `--output` содержит только бинарные байты ключа. `--salt` ожидает HEX; по умолчанию генерируется случайный salt из 16 байт. Значения по умолчанию: 100000 итераций, 32 байта. `--length`: 1..65536 байт.
+CLI выводит `KEY_HEX SALT_HEX` **с одним пробелом только с флагом `--show-key`**; иначе печатает только salt; файл `--output` содержит только бинарные байты ключа. `--salt` ожидает HEX; по умолчанию генерируется случайный salt из 16 байт. Значения по умолчанию: 100000 итераций, 32 байта. `--length`: 1..65536 байт.
 
 Пароль можно прочитать из переменной окружения `--password-env NAME` или из бинарного файла `--password-file PATH`. Передача через `--password` может оставить пароль в истории терминала. Скрипт выводит производный секретный ключ в stdout; не направляйте его в открытые журналы. Изменяемые буферы очищаются best-effort, но Python не гарантирует удаление всех копий.
 
@@ -117,7 +117,7 @@ cryptocore --algorithm aes --mode MODE --decrypt --key HEX32 --input IN --output
 cryptocore dgst --algorithm sha256 --input IN
 cryptocore dgst --algorithm sha3-256 --input IN
 cryptocore dgst --algorithm sha256 --hmac --key HEX --input IN --verify MAC_FILE
-cryptocore derive --password PASSWORD --salt HEX --iterations N --length BYTES
+cryptocore derive --password-prompt --salt HEX --iterations N --length BYTES --output KEY_FILE
 ```
 
 ## Сравнение с другими инструментами
@@ -127,3 +127,24 @@ OpenSSL предлагает оптимизированные хеши, PBKDF2 �
 ## Рекомендации
 
 Предпочитайте GCM или EtM вместо неаутентифицированных режимов. Никогда не используйте один и тот же nonce/IV с одним ключом в потоковых режимах. Не храните секреты в Git и не печатайте ключи в публичных логах. Для важной информации используйте проверенную, поддерживаемую криптографическую библиотеку.
+
+
+## Изменения защиты v0.8.1
+
+Ввод пароля через `--password` разрешён только при явном `--allow-insecure-password-argv`. Предпочтительно `--password-prompt`, `--password-file` или `--password-env`. Для демонстрационного вывода полученного ключа нужно указать `--show-key`; без него `derive` требует `--output`. Количество итераций ограничено 100000 без флага `--allow-slow-kdf` (с ним не более 1000000).
+
+При шифровании без `--key` CryptoCore создаёт файл `<output>.key` из 16 бинарных байтов вместо печати ключа. При расшифровании используйте `--key-file <output>.key`. Не добавляйте файлы ключей в репозиторий.
+
+Локальный реестр `~/.cryptocore/nonces.sqlite3` блокирует повторный nonce/IV при одном ключе и не допускает шифрования, если он недоступен. Реестр нельзя удалять, переносить назад из резервной копии или независимо вести на нескольких устройствах с одним и тем же ключом.
+
+Начиная с версии 0.8.1 большой основной файл шифруется и расшифровывается блоками по 64 КиБ. Результат публикуется через временный файл только после успешного завершения; GCM и EtM проверяют аутентификацию до публикации открытого текста. `--aad-file` работает и для GCM, и для EtM.
+
+Рекомендуемые команды:
+
+```powershell
+cryptocore --algorithm aes --mode gcm --encrypt --input message.bin --output message.gcm
+cryptocore --algorithm aes --mode gcm --decrypt --key-file message.gcm.key --input message.gcm --output restored.bin
+cryptocore derive --password-prompt --iterations 100000 --output derived.key
+```
+
+Ограничения Python zeroize и образовательной реализации GHASH описаны в `SECURITY_REVIEW_2026.md`.

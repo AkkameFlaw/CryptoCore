@@ -201,7 +201,7 @@ def test_pbkdf2_cli_end_to_end(
     result = run_cli(
         "derive",
         "--algorithm", "pbkdf2",
-        "--password", "password",
+        "--allow-insecure-password-argv", "--show-key", "--password", "password",
         "--salt", "73616c74",
         "--iterations", "2",
         "--length", "32",

@@ -238,23 +238,10 @@ def test_generated_key_roundtrip(
 
     captured = capsys.readouterr()
 
-    prefix = (
-        "[INFO] Generated random key: "
-    )
-
-    lines = [
-        line
-        for line
-        in captured.out.splitlines()
-        if line.startswith(prefix)
-    ]
-
-    assert len(lines) == 1
-
-    key = lines[0][
-        len(prefix):
-    ]
-
+    assert "Generated random key:" not in captured.out
+    key_path = tmp_path / "encrypted.bin.key"
+    assert key_path.exists()
+    key = key_path.read_bytes().hex()
     assert len(key) == 32
 
     decrypt_result = run(

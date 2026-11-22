@@ -25,6 +25,7 @@ from .digest import (
     write_digest_output,
 )
 from .file_io import read_binary, write_binary
+from .streaming import encrypt_file, decrypt_file
 from .modes import (
     PaddingError,
     decrypt_cbc,
@@ -46,6 +47,8 @@ GCM_NONCE_SIZE = 12
 SALT_SIZE = 16
 DEFAULT_ITERATIONS = 100_000
 DEFAULT_DERIVED_KEY_LENGTH = 32
+MAX_SAFE_ITERATIONS = 100_000
+MAX_EXPLICIT_ITERATIONS = 1_000_000
 
 SUPPORTED_MODES = {"ecb", "cbc", "cfb", "ofb", "ctr", "gcm", "etm"}
 AEAD_MODES = {"gcm", "etm"}
@@ -85,7 +88,11 @@ def build_parser() -> argparse.ArgumentParser:
     operations.add_argument("--encrypt", action="store_true")
     operations.add_argument("--decrypt", action="store_true")
 
-    parser.add_argument("--key")
+    key_sources = parser.add_mutually_exclusive_group()
+    key_sources.add_argument("--key")
+    key_sources.add_argument("--key-file", dest="key_file", metavar="FILE")
+    parser.add_argument("--key-output", dest="key_output", metavar="FILE")
+    parser.add_argument("--show-key", action="store_true", help="Explicitly allow writing a generated secret key to stdout")
     parser.add_argument("--iv")
     parser.add_argument("--nonce")
     parser.add_argument("--aad")
@@ -143,6 +150,7 @@ def build_derive_parser() -> argparse.ArgumentParser:
     passwords = parser.add_mutually_exclusive_group(required=True)
 
     passwords.add_argument("--password")
+    passwords.add_argument("--password-prompt", action="store_true", help="Read a password without terminal echo")
     passwords.add_argument(
         "--password-env",
         dest="password_env",
@@ -154,6 +162,9 @@ def build_derive_parser() -> argparse.ArgumentParser:
         metavar="FILE",
     )
 
+    parser.add_argument("--allow-insecure-password-argv", action="store_true", help="Explicit opt-in to argv password exposure")
+    parser.add_argument("--show-key", action="store_true", help="Explicitly display the derived secret key")
+    parser.add_argument("--allow-slow-kdf", action="store_true", help="Allow up to 1 million PBKDF2 iterations")
     parser.add_argument("--salt")
     parser.add_argument(
         "--iterations",
@@ -358,6 +369,13 @@ def resolve_password(args: argparse.Namespace) -> bytearray:
         args.password = None
         return password
 
+    if getattr(args, "password_prompt", False):
+        import getpass
+        value = getpass.getpass("CryptoCore password: ")
+        password = bytearray(value.encode("utf-8"))
+        del value
+        return password
+
     if args.password_env is not None:
         value = os.environ.get(args.password_env)
 
@@ -370,6 +388,8 @@ def resolve_password(args: argparse.Namespace) -> bytearray:
         del value
         return password
 
+    if Path(args.password_file).stat().st_size > 4096:
+        raise ArgumentError("--password-file must not exceed 4096 bytes")
     password = bytearray(
         Path(args.password_file).read_bytes()
     )
@@ -405,40 +425,50 @@ def is_weak_key(key: bytes) -> bool:
     return ascending or descending
 
 
+def _write_private_key(path: str, key: bytes) -> None:
+    """Create an exclusive 16-byte key file with restrictive permissions."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(key)
+    except BaseException:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        raise
+
+
 def resolve_key(args: argparse.Namespace) -> bytes:
-    """Parse a supplied AES key or generate a new random key for encryption.
-    
-        Args:
-            args: Parsed command-line options in an argparse.Namespace.
-    
-        Returns:
-            Binary result.
-    
-        Raises:
-            ArgumentError, ValueError, OSError or an authentication error on invalid operations.
+    """Resolve a 16-byte AES key without exposing generated key material by default.
+
+    A missing key on encryption creates an exclusive private sidecar key file.
+    Use --key-file FILE for subsequent operations without secrets in argv.
     """
+    source = getattr(args, "key_file", None)
+    if source is not None:
+        if Path(source).stat().st_size != KEY_SIZE:
+            raise ArgumentError("--key-file must contain exactly 16 raw key bytes")
+        key = Path(source).read_bytes()
+        if len(key) != KEY_SIZE:
+            raise ArgumentError("--key-file must contain exactly 16 raw key bytes")
+        return key
+
     if args.key is None:
         if args.decrypt:
-            raise ArgumentError(
-                "--key is required for decryption"
-            )
-
+            raise ArgumentError("--key is required for decryption (or use --key-file)")
         key = generate_random_bytes(KEY_SIZE)
-
-        print(
-            f"[INFO] Generated random key: {key.hex()}"
-        )
-
+        encrypted = args.output_file or get_default_output(args.input_file, False)
+        output = getattr(args, "key_output", None) or (encrypted + ".key")
+        _write_private_key(output, key)
+        print(f"[INFO] Generated key saved to: {output}", file=sys.stderr)
+        if getattr(args, "show_key", False):
+            print(f"[WARNING] Generated key (explicit output): {key.hex()}", file=sys.stdout)
         return key
 
     key = parse_key(args.key)
-
     if is_weak_key(key):
-        print(
-            "[WARNING] Provided key appears weak.",
-            file=sys.stderr,
-        )
-
+        print("[WARNING] Provided key appears weak.", file=sys.stderr)
     return key
 
 
@@ -523,9 +553,9 @@ def validate_arguments(args: argparse.Namespace) -> str:
                 "--aad and --aad-file cannot be used together"
             )
 
-        if mode != "gcm":
+        if mode not in AEAD_MODES:
             raise ArgumentError(
-                "--aad-file is currently supported only in GCM mode"
+                "--aad-file is supported only in GCM and EtM modes"
             )
 
     return mode
@@ -782,9 +812,19 @@ def run_derive(argv: list[str]) -> int:
 
     try:
         if args.iterations < 1:
+            raise ArgumentError("--iterations must be at least 1")
+        limit = MAX_EXPLICIT_ITERATIONS if args.allow_slow_kdf else MAX_SAFE_ITERATIONS
+        if args.iterations > limit:
             raise ArgumentError(
-                "--iterations must be at least 1"
+                f"--iterations must not exceed {limit}; use --allow-slow-kdf for up to 1000000"
             )
+        if args.password is not None and not args.allow_insecure_password_argv:
+            raise ArgumentError(
+                "--password exposes secrets in argv; use --password-env, --password-file, "
+                "--password-prompt or explicitly --allow-insecure-password-argv"
+            )
+        if args.output_file is None and not args.show_key:
+            raise ArgumentError("--output is required unless --show-key is explicitly set")
 
         if args.length < 1:
             raise ArgumentError(
@@ -815,7 +855,10 @@ def run_derive(argv: list[str]) -> int:
         if args.output_file is not None:
             Path(args.output_file).write_bytes(key)
 
-        print(f"{key.hex()} {salt.hex()}")
+        if args.show_key:
+            print(f"{key.hex()} {salt.hex()}")
+        else:
+            print(f"[INFO] Salt (HEX): {salt.hex()}")
 
         return 0
 
@@ -873,6 +916,8 @@ def run(argv: list[str] | None = None) -> int:
 
     try:
         mode = validate_arguments(args)
+        if not Path(args.input_file).is_file():
+            raise OSError("input file does not exist or is not a regular file")
         key = resolve_key(args)
 
         output_file = (
@@ -885,32 +930,15 @@ def run(argv: list[str] | None = None) -> int:
 
         with ExitStack() as stack:
             if args.aad_file is not None:
-                aad = stack.enter_context(
-                    open(args.aad_file, "rb")
-                )
+                aad = stack.enter_context(open(args.aad_file, "rb"))
             else:
                 aad = parse_aad(args.aad)
-
-            data = read_binary(args.input_file)
-
             if args.encrypt:
-                result = encrypt_data(
-                    data,
-                    key,
-                    mode,
-                    aad,
-                )
+                encrypt_file(args.input_file, output_file, key, mode, aad)
             else:
-                result = decrypt_data(
-                    data,
-                    key,
-                    mode,
-                    args.iv,
-                    aad,
-                    args.nonce,
-                )
-
-        write_binary(output_file, result)
+                provided_iv = parse_iv(args.iv) if (args.iv is not None and mode not in {"gcm", "etm"}) else None
+                provided_nonce = parse_nonce(args.nonce or args.iv) if mode == "gcm" and (args.nonce or args.iv) is not None else None
+                decrypt_file(args.input_file, output_file, key, mode, aad, provided_iv, provided_nonce)
 
         if args.decrypt and mode in AEAD_MODES:
             print(

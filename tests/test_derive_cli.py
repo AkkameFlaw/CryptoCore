@@ -12,7 +12,7 @@ def test_derive_known_answer(capsys):
     result = run([
         "derive",
         "--algorithm", "pbkdf2",
-        "--password", "password",
+        "--allow-insecure-password-argv", "--show-key", "--password", "password",
         "--salt", "73616c74",
         "--iterations", "1",
         "--length", "32",
@@ -33,7 +33,7 @@ def test_derive_binary_output(tmp_path: Path, capsys):
 
     result = run([
         "derive",
-        "--password", "password",
+        "--allow-insecure-password-argv", "--show-key", "--password", "password",
         "--salt", "73616c74",
         "--iterations", "2",
         "--length", "16",
@@ -55,7 +55,7 @@ def test_derive_binary_output(tmp_path: Path, capsys):
 def test_derive_generated_salt(capsys):
     result = run([
         "derive",
-        "--password", "password",
+        "--allow-insecure-password-argv", "--show-key", "--password", "password",
         "--iterations", "1",
         "--length", "16",
     ])
@@ -98,7 +98,7 @@ def test_derive_password_environment(monkeypatch, capsys):
 
     assert run([
         "derive",
-        "--password-env", "CRYPTOCORE_TEST_PASSWORD",
+        "--show-key", "--password-env", "CRYPTOCORE_TEST_PASSWORD",
         "--salt", "00112233445566778899aabbccddeeff",
         "--iterations", "2",
         "--length", "32",
@@ -124,7 +124,7 @@ def test_derive_password_file(tmp_path: Path, capsys):
 
     assert run([
         "derive",
-        "--password-file", str(password_file),
+        "--show-key", "--password-file", str(password_file),
         "--salt", "73616c74",
         "--iterations", "2",
         "--length", "32",
@@ -147,7 +147,7 @@ def test_derive_password_file(tmp_path: Path, capsys):
 def test_derive_invalid_hex_salt(capsys):
     assert run([
         "derive",
-        "--password", "test",
+        "--allow-insecure-password-argv", "--show-key", "--password", "test",
         "--salt", "nothex",
         "--iterations", "1",
     ]) == 2
@@ -158,7 +158,7 @@ def test_derive_invalid_hex_salt(capsys):
 def test_derive_invalid_iterations(capsys):
     assert run([
         "derive",
-        "--password", "test",
+        "--allow-insecure-password-argv", "--show-key", "--password", "test",
         "--iterations", "0",
     ]) == 2
 
@@ -168,7 +168,7 @@ def test_derive_invalid_iterations(capsys):
 def test_derive_invalid_length(capsys):
     assert run([
         "derive",
-        "--password", "test",
+        "--allow-insecure-password-argv", "--show-key", "--password", "test",
         "--iterations", "1",
         "--length", "0",
     ]) == 2
@@ -189,7 +189,7 @@ def test_derive_rejects_unknown_algorithm(capsys):
     assert run([
         "derive",
         "--algorithm", "hkdf",
-        "--password", "test",
+        "--allow-insecure-password-argv", "--show-key", "--password", "test",
         "--iterations", "1",
     ]) == 2
 
@@ -198,7 +198,7 @@ def test_derive_rejects_unknown_algorithm(capsys):
 
 def test_derive_parser_defaults():
     args = build_derive_parser().parse_args([
-        "--password", "test",
+        "--allow-insecure-password-argv", "--show-key", "--password", "test",
     ])
 
     assert args.algorithm == "pbkdf2"
@@ -208,7 +208,7 @@ def test_derive_parser_defaults():
 def test_derive_length_upper_bound(capsys):
     result = run([
         "derive",
-        "--password", "password",
+        "--allow-insecure-password-argv", "--show-key", "--password", "password",
         "--salt", "73616c74",
         "--iterations", "1",
         "--length", "65537",
@@ -250,7 +250,7 @@ def test_derive_zeroizes_password_and_key(
 
     result = run([
         "derive",
-        "--password", "SecretPassword123!",
+        "--allow-insecure-password-argv", "--show-key", "--password", "SecretPassword123!",
         "--salt", "73616c74",
         "--iterations", "1",
         "--length", "16",
@@ -283,7 +283,7 @@ def test_password_not_printed_on_error(
 
     result = run([
         "derive",
-        "--password", secret,
+        "--allow-insecure-password-argv", "--show-key", "--password", secret,
         "--salt", "73616c74",
         "--iterations", "1",
         "--length", "16",

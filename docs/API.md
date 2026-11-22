@@ -1,4 +1,4 @@
-# CryptoCore API — версия 0.8.0 (документационный релиз)
+# CryptoCore API — версия 0.8.1 (исправления безопасности после Sprint 8)
 
 Это описание построено по фактическим исходным модулям CryptoCore. Не все функции являются стабильным внешним API: вспомогательные функции CLI и отдельные AES-примитивы предназначены прежде всего для учебных тестов.
 
@@ -101,7 +101,7 @@ Verify authentication and return the original plaintext bytes.
 
 ```python
 from cryptocore.cli import run
-code = run(["derive", "--password", "test", "--salt", "73616c74", "--iterations", "1", "--length", "16"])
+code = run(["derive", "--password", "test", "--allow-insecure-password-argv", "--show-key", "--salt", "73616c74", "--iterations", "1", "--length", "16"])
 assert code == 0
 ```
 
@@ -309,7 +309,7 @@ Console script entry point returning an integer process status.
 
 **Ошибки:** TypeError или ValueError для недопустимых размеров.
 
-**Безопасность:** Случайные ключи выводятся в CLI при отсутствии --key: сохраните их отдельно.
+**Безопасность:** Случайные AES-ключи сохраняются в `<output>.key` и не выводятся в CLI без явного `--show-key`.
 
 **Пример использования:**
 
@@ -1077,3 +1077,33 @@ Verify authentication and return the original plaintext bytes.
 
 **Возвращает:** bytes. **Пример просмотра:** `help(modes.gcm.GCM.decrypt)`.
 
+
+
+## Обновление API 0.8.1
+
+### `cryptocore.nonce_registry.register_nonce(key: bytes, nonce: bytes, mode: str, database: str | Path | None = None) -> None`
+
+Атомарно резервирует nonce/IV для заданного ключа в локальном SQLite-реестре. Значения ключей не сохраняются (только идентификатор SHA-256 ключа). При повторе вызывает `ValueError`, при недоступном реестре — `OSError`. Защита локальна для одной базы.
+
+### `cryptocore.streaming.encrypt_file(source_path: str | Path, destination: str | Path, key: bytes, mode: str, aad: bytes | BinaryIO = b"") -> None`
+
+Потоково шифрует файл, возвращает `None`. Вход — путь, 16-байтный ключ AES-128, режим `ecb/cbc/cfb/ofb/ctr/gcm/etm`, а также необязательные байты или seekable-поток AAD. Использует приватный временный файл и атомарную замену результата; повтор nonce или отсутствие доступа приводит к ошибке. AEAD GCM выполняется PyCryptodome native.
+
+### `cryptocore.streaming.decrypt_file(source_path: str | Path, destination: str | Path, key: bytes, mode: str, aad: bytes | BinaryIO = b"", iv: bytes | None = None, nonce: bytes | None = None) -> None`
+
+Потоково расшифровывает, возвращает `None`. Входной формат соответствует прежнему CLI. GCM проверяет тег до записи конечного результата (два прохода), EtM проверяет HMAC до дешифрования. Неверная аутентификация вызывает `AuthenticationError` или `EtMAuthenticationError`.
+
+### Изменённые аргументы CLI
+
+- `--key-file FILE`: бинарный 16-байтный AES-ключ; альтернативен `--key HEX`.
+- `--key-output FILE`: имя приватного файла для автоматически генерируемого AES-ключа.
+- `--show-key`: явное разрешение печати секрета.
+- `derive --password-prompt`: скрытый ввод пароля в терминале.
+- `derive --allow-insecure-password-argv`: разрешение небезопасного `--password`.
+- `derive --allow-slow-kdf`: разрешение до 1000000 PBKDF2-итераций вместо 100000.
+- `derive --output FILE`: обязателен без `--show-key`.
+- `--aad-file FILE`: теперь поддерживается GCM и EtM в файловом CLI.
+
+### Разграничение учебного и эксплуатационного API
+
+Класс `modes.GCM` сохраняет собственный Python GHASH, но не предоставляет гарантии constant-time. Файловый CLI GCM использует нативный backend PyCryptodome. Ни один из этих фактов не заменяет независимый аудит.
