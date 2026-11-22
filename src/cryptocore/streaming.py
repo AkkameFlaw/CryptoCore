@@ -118,8 +118,8 @@ def encrypt_file(source_path: str | Path, destination: str | Path, key: bytes, m
             return
         if mode == "etm":
             nonce = generate_random_bytes(16)
-            register_nonce(key, nonce, mode)
             encryption_key = _derive_etm_key(key, b"encryption")[:16]
+            register_nonce(encryption_key, nonce, mode)
             authentication_key = _derive_etm_key(key, b"authentication")
             cipher = _new_cipher("ctr", encryption_key, nonce)
             mac = HMAC(authentication_key)

@@ -13,7 +13,7 @@ It must be reviewed before deciding which objects belong to the supported public
 
 Signature: `class EncryptThenMAC`
 
-Source: `src/aead/encrypt_then_mac.py:67`
+Source: `src\aead\encrypt_then_mac.py:68`
 
 Docstring: **Present**
 
@@ -21,7 +21,7 @@ Docstring: **Present**
 
 Signature: `__init__(self, master_key: bytes) -> None`
 
-Source: `src/aead/encrypt_then_mac.py:76`
+Source: `src\aead\encrypt_then_mac.py:77`
 
 Docstring: **Present**
 
@@ -29,7 +29,7 @@ Docstring: **Present**
 
 Signature: `decrypt(self, data: bytes, aad: bytes=b'') -> bytes`
 
-Source: `src/aead/encrypt_then_mac.py:192`
+Source: `src\aead\encrypt_then_mac.py:194`
 
 Docstring: **Present**
 
@@ -37,7 +37,7 @@ Docstring: **Present**
 
 Signature: `encrypt(self, plaintext: bytes, aad: bytes=b'', nonce: bytes | None=None) -> bytes`
 
-Source: `src/aead/encrypt_then_mac.py:134`
+Source: `src\aead\encrypt_then_mac.py:135`
 
 Docstring: **Present**
 
@@ -45,7 +45,7 @@ Docstring: **Present**
 
 Signature: `class EtMAuthenticationError`
 
-Source: `src/aead/encrypt_then_mac.py:16`
+Source: `src\aead\encrypt_then_mac.py:17`
 
 Docstring: **Present**
 
@@ -53,7 +53,7 @@ Docstring: **Present**
 
 Signature: `class ArgumentError`
 
-Source: `src/cryptocore/cli.py:57`
+Source: `src\cryptocore\cli.py:58`
 
 Docstring: **Present**
 
@@ -61,7 +61,7 @@ Docstring: **Present**
 
 Signature: `build_derive_parser() -> argparse.ArgumentParser`
 
-Source: `src/cryptocore/cli.py:130`
+Source: `src\cryptocore\cli.py:131`
 
 Docstring: **Present**
 
@@ -69,7 +69,7 @@ Docstring: **Present**
 
 Signature: `build_digest_parser() -> argparse.ArgumentParser`
 
-Source: `src/cryptocore/cli.py:106`
+Source: `src\cryptocore\cli.py:107`
 
 Docstring: **Present**
 
@@ -77,7 +77,7 @@ Docstring: **Present**
 
 Signature: `build_parser() -> argparse.ArgumentParser`
 
-Source: `src/cryptocore/cli.py:66`
+Source: `src\cryptocore\cli.py:67`
 
 Docstring: **Present**
 
@@ -85,7 +85,7 @@ Docstring: **Present**
 
 Signature: `decrypt_data(data: bytes, key: bytes, mode: str, iv_text: str | None, aad: bytes | BinaryIO=b'', nonce_text: str | None=None) -> bytes`
 
-Source: `src/cryptocore/cli.py:613`
+Source: `src\cryptocore\cli.py:615`
 
 Docstring: **Present**
 
@@ -93,7 +93,7 @@ Docstring: **Present**
 
 Signature: `encrypt_data(data: bytes, key: bytes, mode: str, aad: bytes | BinaryIO=b'') -> bytes`
 
-Source: `src/cryptocore/cli.py:564`
+Source: `src\cryptocore\cli.py:565`
 
 Docstring: **Present**
 
@@ -101,7 +101,7 @@ Docstring: **Present**
 
 Signature: `get_default_output(input_file: str, decrypt: bool) -> str`
 
-Source: `src/cryptocore/cli.py:475`
+Source: `src\cryptocore\cli.py:476`
 
 Docstring: **Present**
 
@@ -109,7 +109,7 @@ Docstring: **Present**
 
 Signature: `is_weak_key(key: bytes) -> bool`
 
-Source: `src/cryptocore/cli.py:400`
+Source: `src\cryptocore\cli.py:401`
 
 Docstring: **Present**
 
@@ -117,7 +117,7 @@ Docstring: **Present**
 
 Signature: `main() -> int`
 
-Source: `src/cryptocore/cli.py:974`
+Source: `src\cryptocore\cli.py:976`
 
 Docstring: **Present**
 
@@ -125,7 +125,7 @@ Docstring: **Present**
 
 Signature: `parse_aad(aad_text: str | None) -> bytes`
 
-Source: `src/cryptocore/cli.py:299`
+Source: `src\cryptocore\cli.py:300`
 
 Docstring: **Present**
 
@@ -133,7 +133,7 @@ Docstring: **Present**
 
 Signature: `parse_hmac_key(key_text: str) -> bytes`
 
-Source: `src/cryptocore/cli.py:216`
+Source: `src\cryptocore\cli.py:217`
 
 Docstring: **Present**
 
@@ -141,7 +141,7 @@ Docstring: **Present**
 
 Signature: `parse_iv(iv_text: str) -> bytes`
 
-Source: `src/cryptocore/cli.py:239`
+Source: `src\cryptocore\cli.py:240`
 
 Docstring: **Present**
 
@@ -149,7 +149,7 @@ Docstring: **Present**
 
 Signature: `parse_key(key_text: str) -> bytes`
 
-Source: `src/cryptocore/cli.py:184`
+Source: `src\cryptocore\cli.py:185`
 
 Docstring: **Present**
 
@@ -157,7 +157,7 @@ Docstring: **Present**
 
 Signature: `parse_nonce(nonce_text: str) -> bytes`
 
-Source: `src/cryptocore/cli.py:271`
+Source: `src\cryptocore\cli.py:272`
 
 Docstring: **Present**
 
@@ -165,7 +165,7 @@ Docstring: **Present**
 
 Signature: `resolve_key(args: argparse.Namespace) -> bytes`
 
-Source: `src/cryptocore/cli.py:442`
+Source: `src\cryptocore\cli.py:443`
 
 Docstring: **Present**
 
@@ -173,7 +173,7 @@ Docstring: **Present**
 
 Signature: `resolve_password(args: argparse.Namespace) -> bytearray`
 
-Source: `src/cryptocore/cli.py:351`
+Source: `src\cryptocore\cli.py:352`
 
 Docstring: **Present**
 
@@ -181,7 +181,7 @@ Docstring: **Present**
 
 Signature: `resolve_salt(salt_text: str | None) -> bytes`
 
-Source: `src/cryptocore/cli.py:325`
+Source: `src\cryptocore\cli.py:326`
 
 Docstring: **Present**
 
@@ -189,7 +189,7 @@ Docstring: **Present**
 
 Signature: `run(argv: list[str] | None=None) -> int`
 
-Source: `src/cryptocore/cli.py:888`
+Source: `src\cryptocore\cli.py:890`
 
 Docstring: **Present**
 
@@ -197,7 +197,7 @@ Docstring: **Present**
 
 Signature: `run_derive(argv: list[str]) -> int`
 
-Source: `src/cryptocore/cli.py:788`
+Source: `src\cryptocore\cli.py:790`
 
 Docstring: **Present**
 
@@ -205,7 +205,7 @@ Docstring: **Present**
 
 Signature: `run_digest(argv: list[str]) -> int`
 
-Source: `src/cryptocore/cli.py:694`
+Source: `src\cryptocore\cli.py:696`
 
 Docstring: **Present**
 
@@ -213,7 +213,7 @@ Docstring: **Present**
 
 Signature: `validate_arguments(args: argparse.Namespace) -> str`
 
-Source: `src/cryptocore/cli.py:494`
+Source: `src\cryptocore\cli.py:495`
 
 Docstring: **Present**
 
@@ -221,7 +221,7 @@ Docstring: **Present**
 
 Signature: `generate_random_bytes(num_bytes: int) -> bytes`
 
-Source: `src/cryptocore/csprng.py:6`
+Source: `src\cryptocore\csprng.py:6`
 
 Docstring: **Present**
 
@@ -229,7 +229,7 @@ Docstring: **Present**
 
 Signature: `create_hasher(algorithm: str) -> unspecified`
 
-Source: `src/cryptocore/digest.py:18`
+Source: `src\cryptocore\digest.py:18`
 
 Docstring: **Present**
 
@@ -237,7 +237,7 @@ Docstring: **Present**
 
 Signature: `format_digest(hash_value: str, input_file: str) -> str`
 
-Source: `src/cryptocore/digest.py:181`
+Source: `src\cryptocore\digest.py:181`
 
 Docstring: **Present**
 
@@ -245,7 +245,7 @@ Docstring: **Present**
 
 Signature: `format_hmac(hmac_value: str, input_file: str) -> str`
 
-Source: `src/cryptocore/digest.py:203`
+Source: `src\cryptocore\digest.py:203`
 
 Docstring: **Present**
 
@@ -253,7 +253,7 @@ Docstring: **Present**
 
 Signature: `hash_file(input_file: str, algorithm: str) -> str`
 
-Source: `src/cryptocore/digest.py:82`
+Source: `src\cryptocore\digest.py:82`
 
 Docstring: **Present**
 
@@ -261,7 +261,7 @@ Docstring: **Present**
 
 Signature: `hash_stream(stream: BinaryIO, algorithm: str) -> str`
 
-Source: `src/cryptocore/digest.py:47`
+Source: `src\cryptocore\digest.py:47`
 
 Docstring: **Present**
 
@@ -269,7 +269,7 @@ Docstring: **Present**
 
 Signature: `hmac_file(input_file: str, key: bytes) -> str`
 
-Source: `src/cryptocore/digest.py:149`
+Source: `src\cryptocore\digest.py:149`
 
 Docstring: **Present**
 
@@ -277,7 +277,7 @@ Docstring: **Present**
 
 Signature: `hmac_stream(stream: BinaryIO, key: bytes) -> str`
 
-Source: `src/cryptocore/digest.py:114`
+Source: `src\cryptocore\digest.py:114`
 
 Docstring: **Present**
 
@@ -285,7 +285,7 @@ Docstring: **Present**
 
 Signature: `read_expected_hmac(input_file: str) -> str`
 
-Source: `src/cryptocore/digest.py:225`
+Source: `src\cryptocore\digest.py:225`
 
 Docstring: **Present**
 
@@ -293,7 +293,7 @@ Docstring: **Present**
 
 Signature: `write_digest_output(output_file: str, result: str) -> None`
 
-Source: `src/cryptocore/digest.py:278`
+Source: `src\cryptocore\digest.py:278`
 
 Docstring: **Present**
 
@@ -301,7 +301,7 @@ Docstring: **Present**
 
 Signature: `read_binary(path: str | Path) -> bytes`
 
-Source: `src/cryptocore/file_io.py:6`
+Source: `src\cryptocore\file_io.py:6`
 
 Docstring: **Present**
 
@@ -309,7 +309,7 @@ Docstring: **Present**
 
 Signature: `write_binary(path: str | Path, data: bytes) -> None`
 
-Source: `src/cryptocore/file_io.py:23`
+Source: `src\cryptocore\file_io.py:23`
 
 Docstring: **Present**
 
@@ -317,7 +317,7 @@ Docstring: **Present**
 
 Signature: `decrypt_cbc(data: bytes, key: bytes, iv: bytes) -> bytes`
 
-Source: `src/cryptocore/modes/cbc.py:77`
+Source: `src\cryptocore\modes\cbc.py:77`
 
 Docstring: **Present**
 
@@ -325,7 +325,7 @@ Docstring: **Present**
 
 Signature: `encrypt_cbc(data: bytes, key: bytes, iv: bytes) -> bytes`
 
-Source: `src/cryptocore/modes/cbc.py:18`
+Source: `src\cryptocore\modes\cbc.py:18`
 
 Docstring: **Present**
 
@@ -333,7 +333,7 @@ Docstring: **Present**
 
 Signature: `decrypt_cfb(data: bytes, key: bytes, iv: bytes) -> bytes`
 
-Source: `src/cryptocore/modes/cfb.py:70`
+Source: `src\cryptocore\modes\cfb.py:70`
 
 Docstring: **Present**
 
@@ -341,7 +341,7 @@ Docstring: **Present**
 
 Signature: `encrypt_cfb(data: bytes, key: bytes, iv: bytes) -> bytes`
 
-Source: `src/cryptocore/modes/cfb.py:13`
+Source: `src\cryptocore\modes\cfb.py:13`
 
 Docstring: **Present**
 
@@ -349,7 +349,7 @@ Docstring: **Present**
 
 Signature: `validate_iv(iv: bytes) -> None`
 
-Source: `src/cryptocore/modes/common.py:24`
+Source: `src\cryptocore\modes\common.py:24`
 
 Docstring: **Present**
 
@@ -357,7 +357,7 @@ Docstring: **Present**
 
 Signature: `validate_key(key: bytes) -> None`
 
-Source: `src/cryptocore/modes/common.py:6`
+Source: `src\cryptocore\modes\common.py:6`
 
 Docstring: **Present**
 
@@ -365,7 +365,7 @@ Docstring: **Present**
 
 Signature: `xor_bytes(left: bytes, right: bytes) -> bytes`
 
-Source: `src/cryptocore/modes/common.py:42`
+Source: `src\cryptocore\modes\common.py:42`
 
 Docstring: **Present**
 
@@ -373,7 +373,7 @@ Docstring: **Present**
 
 Signature: `decrypt_ctr(data: bytes, key: bytes, iv: bytes) -> bytes`
 
-Source: `src/cryptocore/modes/ctr.py:108`
+Source: `src\cryptocore\modes\ctr.py:108`
 
 Docstring: **Present**
 
@@ -381,7 +381,7 @@ Docstring: **Present**
 
 Signature: `encrypt_ctr(data: bytes, key: bytes, iv: bytes) -> bytes`
 
-Source: `src/cryptocore/modes/ctr.py:83`
+Source: `src\cryptocore\modes\ctr.py:83`
 
 Docstring: **Present**
 
@@ -389,7 +389,7 @@ Docstring: **Present**
 
 Signature: `process_ctr(data: bytes, key: bytes, iv: bytes) -> bytes`
 
-Source: `src/cryptocore/modes/ctr.py:16`
+Source: `src\cryptocore\modes\ctr.py:16`
 
 Docstring: **Present**
 
@@ -397,7 +397,7 @@ Docstring: **Present**
 
 Signature: `class PaddingError`
 
-Source: `src/cryptocore/modes/ecb.py:11`
+Source: `src\cryptocore\modes\ecb.py:11`
 
 Docstring: **Present**
 
@@ -405,7 +405,7 @@ Docstring: **Present**
 
 Signature: `decrypt_ecb(data: bytes, key: bytes) -> bytes`
 
-Source: `src/cryptocore/modes/ecb.py:151`
+Source: `src\cryptocore\modes\ecb.py:151`
 
 Docstring: **Present**
 
@@ -413,7 +413,7 @@ Docstring: **Present**
 
 Signature: `encrypt_ecb(data: bytes, key: bytes) -> bytes`
 
-Source: `src/cryptocore/modes/ecb.py:108`
+Source: `src\cryptocore\modes\ecb.py:108`
 
 Docstring: **Present**
 
@@ -421,7 +421,7 @@ Docstring: **Present**
 
 Signature: `pkcs7_pad(data: bytes, block_size: int=BLOCK_SIZE) -> bytes`
 
-Source: `src/cryptocore/modes/ecb.py:20`
+Source: `src\cryptocore\modes\ecb.py:20`
 
 Docstring: **Present**
 
@@ -429,7 +429,7 @@ Docstring: **Present**
 
 Signature: `pkcs7_unpad(data: bytes, block_size: int=BLOCK_SIZE) -> bytes`
 
-Source: `src/cryptocore/modes/ecb.py:52`
+Source: `src\cryptocore\modes\ecb.py:52`
 
 Docstring: **Present**
 
@@ -437,7 +437,7 @@ Docstring: **Present**
 
 Signature: `decrypt_ofb(data: bytes, key: bytes, iv: bytes) -> bytes`
 
-Source: `src/cryptocore/modes/ofb.py:93`
+Source: `src\cryptocore\modes\ofb.py:93`
 
 Docstring: **Present**
 
@@ -445,7 +445,7 @@ Docstring: **Present**
 
 Signature: `encrypt_ofb(data: bytes, key: bytes, iv: bytes) -> bytes`
 
-Source: `src/cryptocore/modes/ofb.py:68`
+Source: `src\cryptocore\modes\ofb.py:68`
 
 Docstring: **Present**
 
@@ -453,7 +453,7 @@ Docstring: **Present**
 
 Signature: `process_ofb(data: bytes, key: bytes, iv: bytes) -> bytes`
 
-Source: `src/cryptocore/modes/ofb.py:13`
+Source: `src\cryptocore\modes\ofb.py:13`
 
 Docstring: **Present**
 
@@ -461,7 +461,7 @@ Docstring: **Present**
 
 Signature: `register_nonce(key: bytes, nonce: bytes, mode: str, database: str | Path | None=None) -> None`
 
-Source: `src/cryptocore/nonce_registry.py:12`
+Source: `src\cryptocore\nonce_registry.py:12`
 
 Docstring: **Present**
 
@@ -469,7 +469,7 @@ Docstring: **Present**
 
 Signature: `decrypt_file(source_path: str | Path, destination: str | Path, key: bytes, mode: str, aad: bytes | BinaryIO=b'', iv: bytes | None=None, nonce: bytes | None=None) -> None`
 
-Source: `src/cryptocore/streaming.py:161`
+Source: `src\cryptocore\streaming.py:161`
 
 Docstring: **Present**
 
@@ -477,7 +477,7 @@ Docstring: **Present**
 
 Signature: `encrypt_file(source_path: str | Path, destination: str | Path, key: bytes, mode: str, aad: bytes | BinaryIO=b'') -> None`
 
-Source: `src/cryptocore/streaming.py:104`
+Source: `src\cryptocore\streaming.py:104`
 
 Docstring: **Present**
 
@@ -485,7 +485,7 @@ Docstring: **Present**
 
 Signature: `class SHA256`
 
-Source: `src/hash/sha256.py:61`
+Source: `src\hash\sha256.py:61`
 
 Docstring: **Present**
 
@@ -493,7 +493,7 @@ Docstring: **Present**
 
 Signature: `__init__(self) -> None`
 
-Source: `src/hash/sha256.py:70`
+Source: `src\hash\sha256.py:70`
 
 Docstring: **Present**
 
@@ -501,7 +501,7 @@ Docstring: **Present**
 
 Signature: `copy(self) -> 'SHA256'`
 
-Source: `src/hash/sha256.py:89`
+Source: `src\hash\sha256.py:89`
 
 Docstring: **Present**
 
@@ -509,7 +509,7 @@ Docstring: **Present**
 
 Signature: `digest(self) -> bytes`
 
-Source: `src/hash/sha256.py:426`
+Source: `src\hash\sha256.py:426`
 
 Docstring: **Present**
 
@@ -517,7 +517,7 @@ Docstring: **Present**
 
 Signature: `hash(cls, data: bytes | bytearray | memoryview) -> str`
 
-Source: `src/hash/sha256.py:465`
+Source: `src\hash\sha256.py:465`
 
 Docstring: **Present**
 
@@ -525,7 +525,7 @@ Docstring: **Present**
 
 Signature: `hexdigest(self) -> str`
 
-Source: `src/hash/sha256.py:449`
+Source: `src\hash\sha256.py:449`
 
 Docstring: **Present**
 
@@ -533,7 +533,7 @@ Docstring: **Present**
 
 Signature: `update(self, data: bytes | bytearray | memoryview) -> SHA256`
 
-Source: `src/hash/sha256.py:116`
+Source: `src\hash\sha256.py:116`
 
 Docstring: **Present**
 
@@ -541,7 +541,7 @@ Docstring: **Present**
 
 Signature: `class SHA3_256`
 
-Source: `src/hash/sha3_256.py:151`
+Source: `src\hash\sha3_256.py:151`
 
 Docstring: **Present**
 
@@ -549,7 +549,7 @@ Docstring: **Present**
 
 Signature: `__init__(self) -> None`
 
-Source: `src/hash/sha3_256.py:160`
+Source: `src\hash\sha3_256.py:160`
 
 Docstring: **Present**
 
@@ -557,7 +557,7 @@ Docstring: **Present**
 
 Signature: `copy(self) -> 'SHA3_256'`
 
-Source: `src/hash/sha3_256.py:174`
+Source: `src\hash\sha3_256.py:174`
 
 Docstring: **Present**
 
@@ -565,7 +565,7 @@ Docstring: **Present**
 
 Signature: `digest(self) -> bytes`
 
-Source: `src/hash/sha3_256.py:338`
+Source: `src\hash\sha3_256.py:338`
 
 Docstring: **Present**
 
@@ -573,7 +573,7 @@ Docstring: **Present**
 
 Signature: `hash(cls, data: bytes | bytearray | memoryview) -> str`
 
-Source: `src/hash/sha3_256.py:381`
+Source: `src\hash\sha3_256.py:381`
 
 Docstring: **Present**
 
@@ -581,7 +581,7 @@ Docstring: **Present**
 
 Signature: `hexdigest(self) -> str`
 
-Source: `src/hash/sha3_256.py:365`
+Source: `src\hash\sha3_256.py:365`
 
 Docstring: **Present**
 
@@ -589,7 +589,7 @@ Docstring: **Present**
 
 Signature: `update(self, data: bytes | bytearray | memoryview) -> 'SHA3_256'`
 
-Source: `src/hash/sha3_256.py:197`
+Source: `src\hash\sha3_256.py:197`
 
 Docstring: **Present**
 
@@ -597,7 +597,7 @@ Docstring: **Present**
 
 Signature: `derive_key(master_key: bytes, context: str, length: int=32) -> bytes`
 
-Source: `src/kdf/hkdf.py:10`
+Source: `src\kdf\hkdf.py:10`
 
 Docstring: **Present**
 
@@ -605,7 +605,7 @@ Docstring: **Present**
 
 Signature: `pbkdf2_hmac_sha256(password: bytes | bytearray | str, salt: bytes, iterations: int, dklen: int) -> bytes`
 
-Source: `src/kdf/pbkdf2.py:53`
+Source: `src\kdf\pbkdf2.py:53`
 
 Docstring: **Present**
 
@@ -613,7 +613,7 @@ Docstring: **Present**
 
 Signature: `class HMAC`
 
-Source: `src/mac/hmac.py:11`
+Source: `src\mac\hmac.py:11`
 
 Docstring: **Present**
 
@@ -621,7 +621,7 @@ Docstring: **Present**
 
 Signature: `__init__(self, key: bytes | bytearray | memoryview) -> None`
 
-Source: `src/mac/hmac.py:20`
+Source: `src\mac\hmac.py:20`
 
 Docstring: **Present**
 
@@ -629,7 +629,7 @@ Docstring: **Present**
 
 Signature: `compute(cls, key: bytes | bytearray | memoryview, data: bytes | bytearray | memoryview) -> str`
 
-Source: `src/mac/hmac.py:218`
+Source: `src\mac\hmac.py:218`
 
 Docstring: **Present**
 
@@ -637,7 +637,7 @@ Docstring: **Present**
 
 Signature: `copy(self) -> 'HMAC'`
 
-Source: `src/mac/hmac.py:111`
+Source: `src\mac\hmac.py:111`
 
 Docstring: **Present**
 
@@ -645,7 +645,7 @@ Docstring: **Present**
 
 Signature: `digest(self) -> bytes`
 
-Source: `src/mac/hmac.py:171`
+Source: `src\mac\hmac.py:171`
 
 Docstring: **Present**
 
@@ -653,7 +653,7 @@ Docstring: **Present**
 
 Signature: `hexdigest(self) -> str`
 
-Source: `src/mac/hmac.py:202`
+Source: `src\mac\hmac.py:202`
 
 Docstring: **Present**
 
@@ -661,7 +661,7 @@ Docstring: **Present**
 
 Signature: `update(self, data: bytes | bytearray | memoryview) -> 'HMAC'`
 
-Source: `src/mac/hmac.py:136`
+Source: `src\mac\hmac.py:136`
 
 Docstring: **Present**
 
@@ -669,7 +669,7 @@ Docstring: **Present**
 
 Signature: `class AuthenticationError`
 
-Source: `src/modes/gcm.py:17`
+Source: `src\modes\gcm.py:21`
 
 Docstring: **Present**
 
@@ -677,7 +677,7 @@ Docstring: **Present**
 
 Signature: `class GCM`
 
-Source: `src/modes/gcm.py:114`
+Source: `src\modes\gcm.py:44`
 
 Docstring: **Present**
 
@@ -685,7 +685,7 @@ Docstring: **Present**
 
 Signature: `__init__(self, key: bytes, nonce: bytes | None=None) -> None`
 
-Source: `src/modes/gcm.py:123`
+Source: `src\modes\gcm.py:55`
 
 Docstring: **Present**
 
@@ -693,7 +693,7 @@ Docstring: **Present**
 
 Signature: `decrypt(self, data: bytes, aad: bytes | BinaryIO=b'', includes_nonce: bool=True) -> bytes`
 
-Source: `src/modes/gcm.py:394`
+Source: `src\modes\gcm.py:84`
 
 Docstring: **Present**
 
@@ -701,6 +701,6 @@ Docstring: **Present**
 
 Signature: `encrypt(self, plaintext: bytes, aad: bytes | BinaryIO=b'') -> bytes`
 
-Source: `src/modes/gcm.py:350`
+Source: `src\modes\gcm.py:71`
 
 Docstring: **Present**

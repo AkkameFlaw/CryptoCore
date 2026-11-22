@@ -225,25 +225,23 @@ def test_derive_zeroizes_password_and_key(
     tmp_path: Path,
 ):
     captured = {}
-    original_write_bytes = Path.write_bytes
+    original_write = __import__("cryptocore.cli", fromlist=["_write_private_key"])._write_private_key
 
     def fake_pbkdf2(password, salt, iterations, dklen):
         captured["password"] = password
         return b"\xaa" * dklen
 
-    def capture_write_bytes(path, data):
+    def capture_private_write(path, data):
         captured["key"] = data
-        return original_write_bytes(path, data)
+        return original_write(path, data)
 
     monkeypatch.setattr(
         "cryptocore.cli.pbkdf2_hmac_sha256",
         fake_pbkdf2,
     )
-
     monkeypatch.setattr(
-        Path,
-        "write_bytes",
-        capture_write_bytes,
+        "cryptocore.cli._write_private_key",
+        capture_private_write,
     )
 
     output = tmp_path / "key.bin"

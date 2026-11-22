@@ -3,6 +3,7 @@
 import secrets
 
 from cryptocore.csprng import generate_random_bytes
+from cryptocore.nonce_registry import register_nonce
 from cryptocore.modes import decrypt_ctr, encrypt_ctr
 from mac import HMAC
 
@@ -172,6 +173,7 @@ class EncryptThenMAC:
                 "nonce must contain exactly 16 bytes"
             )
 
+        register_nonce(self._encryption_key, nonce, "etm")
         self._encryption_used = True
 
         ciphertext = encrypt_ctr(

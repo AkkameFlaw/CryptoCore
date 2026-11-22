@@ -26,6 +26,7 @@ from .digest import (
 )
 from .file_io import read_binary, write_binary
 from .streaming import encrypt_file, decrypt_file
+from .nonce_registry import register_nonce
 from .modes import (
     PaddingError,
     decrypt_cbc,
@@ -594,6 +595,7 @@ def encrypt_data(
         return encrypt_ecb(data, key)
 
     iv = generate_random_bytes(IV_SIZE)
+    register_nonce(key, iv, mode)
 
     if mode == "cbc":
         ciphertext = encrypt_cbc(data, key, iv)
@@ -853,7 +855,7 @@ def run_derive(argv: list[str]) -> int:
             del derived
 
         if args.output_file is not None:
-            Path(args.output_file).write_bytes(key)
+            _write_private_key(args.output_file, key)
 
         if args.show_key:
             print(f"{key.hex()} {salt.hex()}")

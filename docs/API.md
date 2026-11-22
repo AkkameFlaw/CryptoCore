@@ -1,4 +1,4 @@
-# CryptoCore API — версия 0.8.1 (исправления безопасности после Sprint 8)
+# CryptoCore API — версия 0.8.2 (исправления безопасности после Sprint 8)
 
 Это описание построено по фактическим исходным модулям CryptoCore. Не все функции являются стабильным внешним API: вспомогательные функции CLI и отдельные AES-примитивы предназначены прежде всего для учебных тестов.
 
@@ -1020,11 +1020,11 @@ Compute an HMAC and return its lowercase HEX representation.
 
 ## `modes.gcm`
 
-AES-128 GCM, GHASH, потоковое чтение AAD.
+AES-128 GCM через нативный PyCryptodome, потоковое чтение AAD.
 
 **Ошибки:** AuthenticationError, ValueError, TypeError.
 
-**Безопасность:** Запрещён повтор nonce с ключом; тег проверяется до возврата plaintext. Python GHASH не constant-time.
+**Безопасность:** Запрещён повтор nonce с ключом; тег проверяется до возврата plaintext. Рабочий GHASH выполняется нативным backend; общий constant-time не гарантируется для любой платформы.
 
 **Пример использования:**
 
@@ -1039,13 +1039,13 @@ assert GCM(key, packet[:12]).decrypt(packet, aad=b"header") == b"message"
 
 Raised when GCM authentication or input framing fails.
 
-**Исключения:** AuthenticationError, ValueError, TypeError. **Безопасность:** Запрещён повтор nonce с ключом; тег проверяется до возврата plaintext. Python GHASH не constant-time.
+**Исключения:** AuthenticationError, ValueError, TypeError. **Безопасность:** Запрещён повтор nonce с ключом; тег проверяется до возврата plaintext. Рабочий GHASH выполняется нативным backend; общий constant-time не гарантируется для любой платформы.
 
 ### Класс `GCM`
 
-AES-128 GCM instance with one-use encryption nonce and AAD authentication.
+AES-128 GCM with a native backend and persistent nonce reservation.
 
-**Исключения:** AuthenticationError, ValueError, TypeError. **Безопасность:** Запрещён повтор nonce с ключом; тег проверяется до возврата plaintext. Python GHASH не constant-time.
+**Исключения:** AuthenticationError, ValueError, TypeError. **Безопасность:** Запрещён повтор nonce с ключом; тег проверяется до возврата plaintext. Рабочий GHASH выполняется нативным backend; общий constant-time не гарантируется для любой платформы.
 
 #### `GCM.__init__(self, key: bytes, nonce: bytes | None=None) -> None`
 
@@ -1106,4 +1106,15 @@ Verify authentication and return the original plaintext bytes.
 
 ### Разграничение учебного и эксплуатационного API
 
-Класс `modes.GCM` сохраняет собственный Python GHASH, но не предоставляет гарантии constant-time. Файловый CLI GCM использует нативный backend PyCryptodome. Ни один из этих фактов не заменяет независимый аудит.
+Начиная с 0.8.2, **и `modes.GCM`, и файловый CLI GCM** используют нативный backend PyCryptodome. Табличный Python-GHASH не участвует в рабочем пути и оставлен только как учебный пример в `docs/examples/ghash_reference.py`. Это не заменяет независимый аудит и не доказывает постоянство времени для всех аппаратных платформ.
+
+
+## Обновление API 0.8.2
+
+`modes.GCM(key, nonce=None).encrypt(data, aad=b"")` и `aead.EncryptThenMAC(master_key).encrypt(data, aad=b"", nonce=None)` **атомарно регистрируют** комбинацию ключа и nonce в локальной базе, как и `cryptocore.streaming.encrypt_file`. Дубликат вызывает `ValueError`, недоступность базы — `OSError`; расшифрование не резервирует nonce. Доступ к реестру устанавливается переменной `CRYPTOCORE_NONCE_DB`. Для EtM идентификатор рассчитывается по **внутреннему AES-ключу**, согласованно между streaming и библиотекой.
+
+`cryptocore.cli.encrypt_data(data, key, mode, aad=b"")` резервирует IV при `mode in {"cbc", "cfb", "ofb", "ctr"}`. Низкоуровневые учебные `cryptocore.modes.encrypt_*` **не используют реестр**: их необходимо вызывать с правильно управляемыми IV. ECB вообще не имеет IV и не рекомендован для конфиденциальных сообщений.
+
+`cryptocore.cli.run_derive(...)` с `--output` **создаёт файл ключа эксклюзивно**, без перезаписи; `--show-key` остаётся явным opt-in для вывода секретного HEX. Файлы с секретами и `CRYPTOCORE_NONCE_DB` нельзя помещать в Git.
+
+При шифровании больших файлов используйте `cryptocore.streaming.encrypt_file` вместо in-memory API; read_binary и encrypt_data требуют полного буфера.
